@@ -1,0 +1,459 @@
+@import "tailwindcss";
+
+/* ============================================================
+   CINEMAX THEME VARIABLES
+============================================================ */
+
+:root {
+  --background: #ffffff;
+  --foreground: #0f172a;
+
+  --surface: #ffffff;
+  --surface-secondary: #f8fafc;
+  --surface-tertiary: #f1f5f9;
+
+  --border: #e2e8f0;
+  --border-light: #cbd5e1;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  --navbar-bg: rgba(255, 255, 255, 0.92);
+  --navbar-border: rgba(15, 23, 42, 0.08);
+
+  --input-bg: #ffffff;
+
+  color-scheme: light;
+}
+
+html.dark {
+  --background: #020617;
+  --foreground: #f8fafc;
+
+  --surface: #0f172a;
+  --surface-secondary: #111827;
+  --surface-tertiary: #1e293b;
+
+  --border: #1e293b;
+  --border-light: #334155;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+
+  --navbar-bg: rgba(10, 12, 20, 0.92);
+  --navbar-border: rgba(255, 255, 255, 0.06);
+
+  --input-bg: #0f172a;
+
+  color-scheme: dark;
+}
+
+html.light {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+
+  --surface: #ffffff;
+  --surface-secondary: #f8fafc;
+  --surface-tertiary: #f1f5f9;
+
+  --border: #e2e8f0;
+  --border-light: #cbd5e1;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  --navbar-bg: rgba(255, 255, 255, 0.94);
+  --navbar-border: rgba(15, 23, 42, 0.08);
+
+  --input-bg: #ffffff;
+
+  color-scheme: light;
+}
+
+/* Sepia Theme - Warm, vintage cinema feel */
+html.sepia {
+  --background: #1a1410;
+  --foreground: #e8dcc8;
+  --surface: #2a221c;
+  --surface-secondary: #3a3228;
+  --surface-tertiary: #4a4238;
+  --border: #5a5248;
+  --border-light: #6a6a5a;
+  --text-primary: #e8dcc8;
+  --text-secondary: #d4c4b0;
+  --text-muted: #a89878;
+  --navbar-bg: rgba(26, 20, 16, 0.94);
+  --navbar-border: rgba(232, 220, 200, 0.08);
+  --input-bg: #2a221c;
+  color-scheme: dark;
+}
+
+/* Sunset Theme - Warm reds and oranges */
+html.sunset {
+  --background: #1a0f0a;
+  --foreground: #fde8d8;
+  --surface: #2d1810;
+  --surface-secondary: #3d2820;
+  --surface-tertiary: #4d3830;
+  --border: #5d4840;
+  --border-light: #6d5850;
+  --text-primary: #fde8d8;
+  --text-secondary: #fdd4b8;
+  --text-muted: #d4968a;
+  --navbar-bg: rgba(26, 15, 10, 0.94);
+  --navbar-border: rgba(253, 232, 216, 0.08);
+  --input-bg: #2d1810;
+  color-scheme: dark;
+}
+
+/* Ocean Theme - Cool blues and teals */
+html.ocean {
+  --background: #0a1527;
+  --foreground: #d0e8f2;
+  --surface: #0f1f3a;
+  --surface-secondary: #152e4a;
+  --surface-tertiary: #1a3d5a;
+  --border: #254c6a;
+  --border-light: #305b7a;
+  --text-primary: #d0e8f2;
+  --text-secondary: #b8dce8;
+  --text-muted: #7a9db8;
+  --navbar-bg: rgba(10, 21, 39, 0.94);
+  --navbar-border: rgba(208, 232, 242, 0.08);
+  --input-bg: #0f1f3a;
+  color-scheme: dark;
+}
+
+/* Forest Theme - Deep greens */
+html.forest {
+  --background: #0a1410;
+  --foreground: #d4e8d0;
+  --surface: #0f201a;
+  --surface-secondary: #142e26;
+  --surface-tertiary: #193c32;
+  --border: #1e4a40;
+  --border-light: #235850;
+  --text-primary: #d4e8d0;
+  --text-secondary: #c0dcc0;
+  --text-muted: #7a9b88;
+  --navbar-bg: rgba(10, 20, 16, 0.94);
+  --navbar-border: rgba(212, 232, 208, 0.08);
+  --input-bg: #0f201a;
+  color-scheme: dark;
+}
+
+/* ============================================================
+   TAILWIND THEME
+============================================================ */
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+}
+
+/* ============================================================
+   GLOBAL
+============================================================ */
+
+html {
+  min-height: 100%;
+  background: var(--background);
+  transition:
+    background-color 300ms ease,
+    color 300ms ease;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+  transition:
+    background-color 300ms ease,
+    color 300ms ease;
+}
+
+/* ============================================================
+   GLOBAL THEME HELPERS
+============================================================ */
+
+.theme-page {
+  background: var(--background);
+  color: var(--text-primary);
+  transition:
+    background-color 300ms ease,
+    color 300ms ease;
+}
+
+.theme-surface {
+  background: var(--surface);
+  color: var(--text-primary);
+}
+
+.theme-surface-secondary {
+  background: var(--surface-secondary);
+  color: var(--text-primary);
+}
+
+.theme-border {
+  border-color: var(--border);
+}
+
+.theme-text-primary {
+  color: var(--text-primary);
+}
+
+.theme-text-secondary {
+  color: var(--text-secondary);
+}
+
+.theme-text-muted {
+  color: var(--text-muted);
+}
+
+.theme-input {
+  background: var(--input-bg);
+  color: var(--text-primary);
+  border-color: var(--border);
+}
+
+.theme-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* ============================================================
+   NAVBAR SMOOTH TRANSITIONS
+============================================================ */
+
+nav,
+nav * {
+  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+}
+
+/* ============================================================
+   CINEMAX SPLASH ANIMATIONS
+============================================================ */
+
+@keyframes cinemaLogo {
+  0% {
+    opacity: 0;
+    transform: scale(0.55) translateY(30px);
+    filter: blur(15px);
+  }
+
+  55% {
+    opacity: 1;
+    transform: scale(1.08) translateY(0);
+    filter: blur(0);
+  }
+
+  75% {
+    transform: scale(0.98);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes brandReveal {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+    letter-spacing: 0.8em;
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    letter-spacing: 0.4em;
+  }
+}
+
+@keyframes fadeUp {
+  0% {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes loadingBar {
+  0% {
+    transform: scaleX(0);
+  }
+
+  100% {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes cinemaSweep {
+  0% {
+    transform: translateX(-60%);
+    opacity: 0;
+  }
+
+  30% {
+    opacity: 1;
+  }
+
+  70% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateX(60%);
+    opacity: 0;
+  }
+}
+
+@keyframes ringRotate {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes particle1 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translateY(-30px);
+  }
+}
+
+@keyframes particle2 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 20px);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translate(-20px, -30px);
+  }
+}
+
+@keyframes particle3 {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  50% {
+    opacity: 1;
+    transform: translate(15px, -35px);
+  }
+}
+
+/* Enhanced animations for splash screen */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 40px rgba(239, 68, 68, 0.6);
+  }
+}
+
+@keyframes scan-line {
+  0% {
+    transform: translateY(-100%);
+  }
+
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes float-up {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes text-shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+@keyframes rotate-3d {
+  0% {
+    transform: rotateX(0deg) rotateY(0deg);
+  }
+
+  100% {
+    transform: rotateX(360deg) rotateY(360deg);
+  }
+}
+
+@keyframes pulse-scale {
+  0%, 100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.1);
+  }
+}
+
+/* ============================================================
+   SELECTION
+============================================================ */
+
+::selection {
+  background: #dc2626;
+  color: white;
+}
+
+/* ============================================================
+   SMOOTH TRANSITIONS
+============================================================ */
+
+button,
+input,
+select,
+a,
+div,
+section,
+footer,
+nav {
+  transition-property:
+    background-color,
+    border-color,
+    color,
+    box-shadow;
+  transition-duration: 200ms;
+}
