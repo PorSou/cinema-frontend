@@ -19,6 +19,7 @@ import GenreService from "@/app/service/genre.service";
 import { GenreResponse, GenreRequest } from "@/app/types/api.types";
 import Toast from "@/app/components/Toast";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
+import { useSettings } from "@/app/context/SettingsContext"; // <--- 1. Import useSettings
 
 const extractArray = <T,>(res: any): T[] => {
   if (Array.isArray(res)) return res;
@@ -30,6 +31,9 @@ const extractArray = <T,>(res: any): T[] => {
 };
 
 export default function AdminGenresPage() {
+  const { theme } = useSettings(); // <--- 2. Get theme context
+  const isLight = theme === "light";
+
   const [genres, setGenres] = useState<GenreResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -71,7 +75,10 @@ export default function AdminGenresPage() {
     type: "success",
   });
 
-  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+  const showToast = (
+    message: string,
+    type: "success" | "error" | "info" = "success",
+  ) => {
     setToast({ message, type });
   };
 
@@ -128,8 +135,13 @@ export default function AdminGenresPage() {
     try {
       const payload: GenreRequest = { name: trimmed };
       if (editingGenre) {
-        const updated = await GenreService.updateGenre(editingGenre.id, payload);
-        setGenres((prev) => prev.map((g) => (g.id === editingGenre.id ? updated : g)));
+        const updated = await GenreService.updateGenre(
+          editingGenre.id,
+          payload,
+        );
+        setGenres((prev) =>
+          prev.map((g) => (g.id === editingGenre.id ? updated : g)),
+        );
         showToast(`Genre "${trimmed}" updated successfully!`, "success");
       } else {
         const created = await GenreService.createGenre(payload);
@@ -140,8 +152,10 @@ export default function AdminGenresPage() {
       setIsModalOpen(false);
     } catch (err: any) {
       showToast(
-        err.response?.data?.status?.message || err.response?.data?.message || "Operation failed.",
-        "error"
+        err.response?.data?.status?.message ||
+          err.response?.data?.message ||
+          "Operation failed.",
+        "error",
       );
     } finally {
       setSubmitting(false);
@@ -202,8 +216,53 @@ export default function AdminGenresPage() {
     return genres.filter((g) => g.name.toLowerCase().includes(query));
   }, [genres, searchQuery]);
 
+  /**
+   * =========================================================
+   * DYNAMIC THEME CLASSES (PERMANENT HIGH-CONTRAST LIGHT & DARK)
+   * =========================================================
+   */
+  const pageClass = isLight
+    ? "bg-slate-50 text-slate-900"
+    : "bg-slate-950 text-slate-100";
+
+  const cardClass = isLight
+    ? "border-slate-300 bg-white shadow-xl shadow-slate-200 ring-1 ring-slate-200"
+    : "border-slate-800 bg-slate-900/60 shadow-2xl backdrop-blur-md";
+
+  const inputClass = isLight
+    ? "border-slate-300 bg-slate-50 text-slate-900 placeholder-slate-400 focus:border-red-500"
+    : "border-slate-800 bg-slate-900/90 text-white placeholder-slate-500 focus:border-red-500";
+
+  const modalBgClass = isLight
+    ? "border-slate-300 bg-white shadow-2xl shadow-slate-300/60 text-slate-900 ring-1 ring-slate-200"
+    : "border-slate-800 bg-slate-900 shadow-2xl text-slate-100";
+
+  const textPrimary = isLight
+    ? "text-slate-900 font-black"
+    : "text-white font-black";
+  const textSecondary = isLight
+    ? "text-slate-700 font-bold"
+    : "text-slate-400 font-medium";
+  const textMuted = isLight
+    ? "text-slate-600 font-bold"
+    : "text-slate-600 font-medium";
+  const borderCol = isLight ? "border-slate-300" : "border-slate-800";
+
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
+    <div
+      className={`min-h-screen py-6 px-4 sm:px-8 lg:px-10 w-full space-y-6 transition-colors duration-300 pb-24 ${pageClass}`}
+    >
+      <style jsx global>{`
+        /* Completely hide scrollbars for Chrome, Safari, Edge, and Firefox */
+        ::-webkit-scrollbar {
+          display: none;
+        }
+        * {
+          -ms-overflow-style: none; /* IE and Edge */
+          scrollbar-width: none; /* Firefox */
+        }
+      `}</style>
+
       {/* Toast Alert */}
       <Toast
         message={toast.message}
@@ -222,24 +281,32 @@ export default function AdminGenresPage() {
           await confirmDialog.action();
           setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
         }}
-        onCancel={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
+        onCancel={() =>
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }))
+        }
       />
 
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      <div
+        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b ${borderCol} pb-5`}
+      >
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 shrink-0">
+            <div className="p-2 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-600 shrink-0">
               <Tags className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              <h1
+                className={`text-xl sm:text-2xl font-black tracking-tight ${textPrimary} flex items-center gap-2`}
+              >
                 Movie Genres
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                <span
+                  className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isLight ? "bg-white text-slate-800 border-slate-300 shadow-sm" : "bg-slate-800 text-slate-400 border-slate-700"} border`}
+                >
                   {totalElements} Total
                 </span>
               </h1>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className={`text-xs ${textSecondary} mt-0.5`}>
                 Manage movie categories, tags, and classification taxonomy
               </p>
             </div>
@@ -254,8 +321,10 @@ export default function AdminGenresPage() {
             }}
             className={`flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-bold transition cursor-pointer border shadow-sm ${
               viewTrash
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-500"
+                : isLight
+                  ? "bg-white border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-50 shadow-sm"
+                  : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
             }`}
           >
             <Archive className="h-4 w-4" />
@@ -276,13 +345,15 @@ export default function AdminGenresPage() {
 
       {/* Search Bar */}
       <div className="relative max-w-md">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+        <Search
+          className={`absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 ${textSecondary}`}
+        />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search genre by name (e.g. Action, Sci-Fi)..."
-          className="w-full rounded-2xl border border-slate-800 bg-slate-900/90 py-3 pl-10 pr-4 text-xs font-medium text-white placeholder-slate-500 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 shadow-lg transition"
+          className={`w-full rounded-2xl border py-3 pl-10 pr-4 text-xs font-bold outline-none focus:ring-1 focus:ring-red-500 shadow-lg transition ${inputClass}`}
         />
       </div>
 
@@ -296,17 +367,21 @@ export default function AdminGenresPage() {
           {filteredGenres.map((genre) => (
             <div
               key={genre.id}
-              className="group rounded-2xl border border-slate-800/80 bg-slate-900/60 p-4 backdrop-blur-md shadow-xl flex items-center justify-between hover:border-slate-700 transition"
+              className={`group rounded-2xl border ${cardClass} p-4 backdrop-blur-md shadow-xl flex items-center justify-between hover:border-slate-400 dark:hover:border-slate-700 transition`}
             >
               <div className="flex items-center gap-3 min-w-0">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-500/20 to-rose-500/5 border border-red-500/20 text-red-400 font-black text-xs shadow-inner">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-500/20 to-rose-500/5 border border-red-500/30 text-red-600 font-black text-xs shadow-inner">
                   {genre.name.substring(0, 2).toUpperCase()}
                 </div>
                 <div className="min-w-0">
-                  <h3 className="text-sm font-bold text-white truncate group-hover:text-red-400 transition">
+                  <h3
+                    className={`text-sm font-black ${textPrimary} truncate group-hover:text-red-600 transition`}
+                  >
                     {genre.name}
                   </h3>
-                  <span className="text-[10px] text-slate-500 font-mono">
+                  <span
+                    className={`text-[10px] ${textSecondary} font-mono font-bold`}
+                  >
                     ID: #{genre.id}
                   </span>
                 </div>
@@ -317,14 +392,14 @@ export default function AdminGenresPage() {
                   <>
                     <button
                       onClick={() => openModal(genre)}
-                      className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                      className={`p-1.5 rounded-xl ${isLight ? "text-slate-600 hover:text-slate-900 hover:bg-slate-200" : "text-slate-400 hover:text-white hover:bg-slate-800"} transition cursor-pointer`}
                       title="Edit Genre"
                     >
                       <Edit3 className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleSoftDelete(genre)}
-                      className="p-1.5 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition cursor-pointer"
+                      className="p-1.5 rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 transition cursor-pointer"
                       title="Move to Trash"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -334,14 +409,14 @@ export default function AdminGenresPage() {
                   <>
                     <button
                       onClick={() => handleRestore(genre)}
-                      className="p-1.5 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition cursor-pointer"
+                      className="p-1.5 rounded-xl text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10 transition cursor-pointer"
                       title="Restore Genre"
                     >
                       <RotateCcw className="h-4 w-4" />
                     </button>
                     <button
                       onClick={() => handleHardDelete(genre)}
-                      className="p-1.5 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition cursor-pointer"
+                      className="p-1.5 rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 transition cursor-pointer"
                       title="Delete Permanently"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -353,12 +428,14 @@ export default function AdminGenresPage() {
           ))}
         </div>
       ) : (
-        <div className="flex min-h-[30vh] flex-col items-center justify-center rounded-3xl border border-slate-800 bg-slate-900/30 p-8 text-center text-slate-400 text-sm space-y-2">
-          <Tags className="h-10 w-10 text-slate-600 mb-1" />
-          <p className="font-semibold text-slate-300">
+        <div
+          className={`flex min-h-[30vh] flex-col items-center justify-center rounded-3xl border ${cardClass} p-8 text-center ${textSecondary} text-sm space-y-2`}
+        >
+          <Tags className={`h-10 w-10 ${textMuted} mb-1`} />
+          <p className={`font-black ${textPrimary}`}>
             {viewTrash ? "Trash bin is empty." : "No movie genres found."}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className={`text-xs ${textSecondary}`}>
             {viewTrash
               ? "Deleted genres will appear here for restoration."
               : "Click 'Add Genre' to create your first movie category."}
@@ -368,24 +445,28 @@ export default function AdminGenresPage() {
 
       {/* Pagination Controls */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between border-t border-slate-800/80 pt-4 text-xs">
-          <span className="text-slate-500">
-            Page <span className="font-bold text-slate-300">{page + 1}</span> of{" "}
-            <span className="font-bold text-slate-300">{totalPages}</span>
+        <div
+          className={`flex items-center justify-between border-t ${borderCol} pt-4 text-xs`}
+        >
+          <span className={textSecondary}>
+            Page <span className={`font-black ${textPrimary}`}>{page + 1}</span>{" "}
+            of <span className={`font-black ${textPrimary}`}>{totalPages}</span>
           </span>
 
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setPage((prev) => Math.max(prev - 1, 0))}
               disabled={page === 0}
-              className="p-2 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-white disabled:opacity-40 transition cursor-pointer"
+              className={`p-2 rounded-xl border ${borderCol} ${isLight ? "bg-white text-slate-800 hover:bg-slate-100 shadow-sm font-bold" : "bg-slate-900 text-slate-400 hover:text-white"} disabled:opacity-40 transition cursor-pointer`}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
             <button
-              onClick={() => setPage((prev) => Math.min(prev + 1, totalPages - 1))}
+              onClick={() =>
+                setPage((prev) => Math.min(prev + 1, totalPages - 1))
+              }
               disabled={page >= totalPages - 1}
-              className="p-2 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-white disabled:opacity-40 transition cursor-pointer"
+              className={`p-2 rounded-xl border ${borderCol} ${isLight ? "bg-white text-slate-800 hover:bg-slate-100 shadow-sm font-bold" : "bg-slate-900 text-slate-400 hover:text-white"} disabled:opacity-40 transition cursor-pointer`}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -395,25 +476,37 @@ export default function AdminGenresPage() {
 
       {/* Add / Edit Genre Modal Dialog */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-sm rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div
+            className={`relative w-full max-w-sm rounded-3xl border p-6 shadow-2xl space-y-4 ${modalBgClass}`}
+          >
             <button
               onClick={() => setIsModalOpen(false)}
-              className="absolute right-5 top-5 text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-slate-800 transition"
+              className={`absolute right-5 top-5 ${textSecondary} hover:${textPrimary} cursor-pointer p-1 rounded-lg ${isLight ? "hover:bg-slate-100" : "hover:bg-slate-800"} transition`}
             >
               <X className="h-5 w-5" />
             </button>
 
-            <div className="border-b border-slate-800 pb-3">
-              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-red-500" />
+            <div className={`border-b ${borderCol} pb-3`}>
+              <h2
+                className={`text-base sm:text-lg font-black ${textPrimary} flex items-center gap-2`}
+              >
+                <Sparkles className="h-4 w-4 text-red-600" />
                 {editingGenre ? "Edit Genre" : "Add New Genre"}
               </h2>
             </div>
 
-            <form onSubmit={handleSubmit} noValidate className="space-y-4 text-xs">
+            <form
+              onSubmit={handleSubmit}
+              noValidate
+              className="space-y-4 text-xs"
+            >
               <div>
-                <label className="block text-slate-300 mb-1.5 font-bold">Genre Name *</label>
+                <label
+                  className={`block ${isLight ? "text-slate-800" : "text-slate-300"} mb-1.5 font-bold`}
+                >
+                  Genre Name *
+                </label>
                 <input
                   type="text"
                   autoFocus
@@ -423,27 +516,35 @@ export default function AdminGenresPage() {
                     if (nameError) setNameError(null);
                   }}
                   placeholder="e.g. Action, Horror, Animation, Sci-Fi"
-                  className={`w-full rounded-xl border bg-slate-950 px-3.5 py-2.5 text-white outline-none transition ${
-                    nameError ? "border-rose-500 focus:border-rose-500" : "border-slate-800 focus:border-red-500"
+                  className={`w-full rounded-xl border ${isLight ? "bg-white text-slate-900 border-slate-300 shadow-sm font-bold" : "bg-slate-950 text-white border-slate-800"} px-3.5 py-2.5 outline-none transition ${
+                    nameError
+                      ? "border-rose-500 focus:border-rose-500"
+                      : "focus:border-red-500"
                   }`}
                 />
-                {nameError && <p className="mt-1 text-[11px] text-rose-400">{nameError}</p>}
+                {nameError && (
+                  <p className="mt-1 text-[11px] text-rose-500">{nameError}</p>
+                )}
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+              <div
+                className={`flex justify-end gap-2.5 pt-3 border-t ${borderCol}`}
+              >
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer transition"
+                  className={`rounded-xl border ${isLight ? "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 shadow-sm font-bold" : "border-slate-800 bg-slate-950 text-slate-400 hover:text-white"} px-4 py-2.5 text-xs cursor-pointer transition`}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-red-600/30 hover:from-red-500 hover:to-rose-500 disabled:opacity-50 cursor-pointer transition"
+                  className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-red-600/30 hover:from-red-500 hover:to-rose-500 disabled:opacity-50 cursor-pointer transition"
                 >
-                  {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {submitting && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  )}
                   <span>{editingGenre ? "Save Changes" : "Create Genre"}</span>
                 </button>
               </div>

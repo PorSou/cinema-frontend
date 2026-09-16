@@ -3,10 +3,8 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 
-const SPLASH_KEY = "cinemax_first_visit";
-
-const DISPLAY_MS = 5500;
-const FADE_MS = 800;
+const DISPLAY_MS = 3000;
+const FADE_MS = 500;
 
 export default function LogoSplashLoader() {
   const [showSplash, setShowSplash] = useState(false);
@@ -21,33 +19,7 @@ export default function LogoSplashLoader() {
       return;
     }
 
-    let hasVisited = false;
-
-    try {
-      hasVisited = localStorage.getItem(SPLASH_KEY) === "true";
-    } catch {
-      hasVisited = false;
-    }
-
-    /*
-     * Returning visitor:
-     * Do absolutely nothing - show page immediately
-     */
-    if (hasVisited) {
-      setChecked(true);
-      return;
-    }
-
-    /*
-     * First visit:
-     * Show splash and mark as visited
-     */
-    try {
-      localStorage.setItem(SPLASH_KEY, "true");
-    } catch {
-      // Ignore storage errors
-    }
-
+    // Always show splash on homepage load/refresh
     setShowSplash(true);
     setChecked(true);
 
@@ -65,12 +37,6 @@ export default function LogoSplashLoader() {
     };
   }, []);
 
-  /*
-   * IMPORTANT:
-   * During the initial check, render nothing.
-   *
-   * This prevents the splash from flashing on refresh.
-   */
   if (!checked || !showSplash) {
     return null;
   }
@@ -209,7 +175,6 @@ export default function LogoSplashLoader() {
       {/* Main content */}
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="flex flex-col items-center">
-
           {/* Logo */}
           <div
             className="

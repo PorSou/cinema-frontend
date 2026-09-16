@@ -73,75 +73,111 @@ html.light {
   color-scheme: light;
 }
 
-/* Sepia Theme - Warm, vintage cinema feel */
+/* ============================================================
+   SEPIA THEME
+============================================================ */
+
 html.sepia {
   --background: #1a1410;
   --foreground: #e8dcc8;
+
   --surface: #2a221c;
   --surface-secondary: #3a3228;
   --surface-tertiary: #4a4238;
+
   --border: #5a5248;
   --border-light: #6a6a5a;
+
   --text-primary: #e8dcc8;
   --text-secondary: #d4c4b0;
   --text-muted: #a89878;
+
   --navbar-bg: rgba(26, 20, 16, 0.94);
   --navbar-border: rgba(232, 220, 200, 0.08);
+
   --input-bg: #2a221c;
+
   color-scheme: dark;
 }
 
-/* Sunset Theme - Warm reds and oranges */
+/* ============================================================
+   SUNSET THEME
+============================================================ */
+
 html.sunset {
   --background: #1a0f0a;
   --foreground: #fde8d8;
+
   --surface: #2d1810;
   --surface-secondary: #3d2820;
   --surface-tertiary: #4d3830;
+
   --border: #5d4840;
   --border-light: #6d5850;
+
   --text-primary: #fde8d8;
   --text-secondary: #fdd4b8;
   --text-muted: #d4968a;
+
   --navbar-bg: rgba(26, 15, 10, 0.94);
   --navbar-border: rgba(253, 232, 216, 0.08);
+
   --input-bg: #2d1810;
+
   color-scheme: dark;
 }
 
-/* Ocean Theme - Cool blues and teals */
+/* ============================================================
+   OCEAN THEME
+============================================================ */
+
 html.ocean {
   --background: #0a1527;
   --foreground: #d0e8f2;
+
   --surface: #0f1f3a;
   --surface-secondary: #152e4a;
   --surface-tertiary: #1a3d5a;
+
   --border: #254c6a;
   --border-light: #305b7a;
+
   --text-primary: #d0e8f2;
   --text-secondary: #b8dce8;
   --text-muted: #7a9db8;
+
   --navbar-bg: rgba(10, 21, 39, 0.94);
   --navbar-border: rgba(208, 232, 242, 0.08);
+
   --input-bg: #0f1f3a;
+
   color-scheme: dark;
 }
 
-/* Forest Theme - Deep greens */
+/* ============================================================
+   FOREST THEME
+============================================================ */
+
 html.forest {
   --background: #0a1410;
   --foreground: #d4e8d0;
+
   --surface: #0f201a;
   --surface-secondary: #142e26;
   --surface-tertiary: #193c32;
+
   --border: #1e4a40;
   --border-light: #235850;
+
   --text-primary: #d4e8d0;
   --text-secondary: #c0dcc0;
   --text-muted: #7a9b88;
+
   --navbar-bg: rgba(10, 20, 16, 0.94);
   --navbar-border: rgba(212, 232, 208, 0.08);
+
   --input-bg: #0f201a;
+
   color-scheme: dark;
 }
 
@@ -161,6 +197,7 @@ html.forest {
 html {
   min-height: 100%;
   background: var(--background);
+
   transition:
     background-color 300ms ease,
     color 300ms ease;
@@ -169,9 +206,12 @@ html {
 body {
   min-height: 100vh;
   margin: 0;
+
   background: var(--background);
   color: var(--foreground);
+
   font-family: Arial, Helvetica, sans-serif;
+
   transition:
     background-color 300ms ease,
     color 300ms ease;
@@ -184,6 +224,7 @@ body {
 .theme-page {
   background: var(--background);
   color: var(--text-primary);
+
   transition:
     background-color 300ms ease,
     color 300ms ease;
@@ -231,7 +272,10 @@ body {
 
 nav,
 nav * {
-  transition: background-color 200ms ease, color 200ms ease, border-color 200ms ease;
+  transition:
+    background-color 200ms ease,
+    color 200ms ease,
+    border-color 200ms ease;
 }
 
 /* ============================================================
@@ -366,9 +410,13 @@ nav * {
   }
 }
 
-/* Enhanced animations for splash screen */
+/* ============================================================
+   ENHANCED SPLASH ANIMATIONS
+============================================================ */
+
 @keyframes glow-pulse {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
   }
 
@@ -420,7 +468,8 @@ nav * {
 }
 
 @keyframes pulse-scale {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
   }
 
@@ -450,10 +499,63 @@ div,
 section,
 footer,
 nav {
-  transition-property:
-    background-color,
-    border-color,
-    color,
-    box-shadow;
+  transition-property: background-color, border-color, color, box-shadow;
+
   transition-duration: 200ms;
+}
+
+/* ============================================================
+   GLOBAL PRINT
+   IMPORTANT:
+   Do NOT hide body elements here.
+   Individual pages control their own print layout.
+============================================================ */
+
+@media print {
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html,
+  body {
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
+
+@keyframes shimmer-diagonal {
+  0% {
+    transform: translate(-50%, -50%) rotate(25deg) translateY(-100%);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-50%, -50%) rotate(25deg) translateY(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+.animate-shimmer-ray {
+  animation: shimmer-diagonal 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-twinkle {
+  animation: twinkle 2.5s ease-in-out infinite;
 }

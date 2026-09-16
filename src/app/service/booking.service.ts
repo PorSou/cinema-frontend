@@ -1,5 +1,9 @@
 import api from "../lib/api";
-import { PageResponse, ShowtimeSeatLayoutResponse, TicketCheckInResponse } from "@/app/types/api.types";
+import {
+  PageResponse,
+  ShowtimeSeatLayoutResponse,
+  TicketCheckInResponse,
+} from "@/app/types/api.types";
 
 const extractData = (res: any) =>
   res.data?.body?.data || res.data?.data || res.data;
@@ -26,6 +30,8 @@ export interface BookingResponse {
   hallName?: string;
   startTime?: string;
   totalAmount: number;
+  discountAmount?: number;
+  voucherCode?: string;
   status: "PENDING" | "CONFIRMED" | "CANCELLED" | "CHECKED_IN" | "COMPLETED";
   paymentStatus?: "PENDING" | "PAID" | "FAILED" | "REFUNDED";
   tickets?: TicketResponse[];
@@ -33,9 +39,19 @@ export interface BookingResponse {
   updatedAt: string;
 }
 
+// 👇 NEW — matches backend BookingRequest.java, which BookingServiceImpl
+// reads via request.getConcessions() when building a booking. Previously
+// missing here, which is what caused seatBookingPage's KHQR payload to
+// need an `as any` cast just to include F&B selections.
+export interface ConcessionSelectionRequest {
+  concessionItemId: number;
+  quantity: number;
+}
+
 export interface BookingRequest {
   showtimeId: number;
   seatIds: number[];
+  concessions?: ConcessionSelectionRequest[];
 }
 
 export interface BookingQueryParams {
@@ -48,17 +64,36 @@ export interface BookingQueryParams {
 }
 
 export const BookingService = {
-  async getSeatLayoutForShowtime(showtimeId: number): Promise<ShowtimeSeatLayoutResponse> {
+  async getSeatLayoutForShowtime(
+    showtimeId: number,
+  ): Promise<ShowtimeSeatLayoutResponse> {
     const res = await api.get(`/bookings/showtime/${showtimeId}/layout`);
     return extractData(res);
   },
 
-  async createBooking(request: BookingRequest): Promise<BookingResponse> {
-    const res = await api.post("/bookings", request);
+  // 👇 UPDATED — now accepts an optional voucherCode as a second argument,
+  // matching BookingServiceImpl.createBooking(userId, request, voucherCode)
+  // on the backend. Sent as a query param on POST /bookings.
+  //
+  // ⚠️ NOTE: this assumes BookingController's create-booking endpoint reads
+  // a `voucherCode` request param and forwards it to
+  // bookingService.createBooking(currentUserId, request, voucherCode).
+  // If BookingController doesn't do that yet, this param will be silently
+  // ignored server-side even though it compiles fine here — confirm/add
+  // that wiring in BookingController.java.
+  async createBooking(
+    request: BookingRequest,
+    voucherCode?: string,
+  ): Promise<BookingResponse> {
+    const res = await api.post("/bookings", request, {
+      params: voucherCode ? { voucherCode } : undefined,
+    });
     return extractData(res);
   },
 
-  async getAllBookings(params: BookingQueryParams = {}): Promise<PageResponse<BookingResponse>> {
+  async getAllBookings(
+    params: BookingQueryParams = {},
+  ): Promise<PageResponse<BookingResponse>> {
     const {
       status,
       search,
@@ -105,7 +140,15 @@ export const BookingService = {
 
   // Added check-in method for the gate admission scanner page
   async checkInTicket(bookingNumber: string): Promise<TicketCheckInResponse> {
-    const res = await api.post(`/bookings/check-in/${bookingNumber}`);
+    const res = await api.post(
+      `/tickets/scan/${encodeURIComponent(bookingNumber)}`,
+    );
+    return extractData(res);
+  },
+
+  // 👇 Added method to manually confirm cash booking status if needed
+  async confirmCashBooking(id: number): Promise<BookingResponse> {
+    const res = await api.put(`/bookings/${id}/confirm-cash`);
     return extractData(res);
   },
 };

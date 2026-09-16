@@ -4,7 +4,6 @@ import { useState, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Film,
   Lock,
   Mail,
   User,
@@ -13,21 +12,18 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
+  CheckCircle2,
+  ArrowRight,
 } from "lucide-react";
+import { Turnstile } from "@marsidev/react-turnstile";
 
 import { AuthService } from "@/app/service/auth.service";
 import { useSettings } from "@/app/context/SettingsContext";
+import SocialLoginButtons from "@/app/components/SocialLoginButtons";
 
 export default function RegisterPage() {
   const router = useRouter();
 
-  /**
-   * =========================================================
-   * SETTINGS
-   * =========================================================
-   *
-   * Get theme + translations from the global SettingsProvider.
-   */
   const { t, theme } = useSettings();
 
   const isLight = theme === "light";
@@ -36,23 +32,21 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const [errors, setErrors] = useState<{
     fullName?: string;
     email?: string;
     phone?: string;
     password?: string;
+    turnstile?: string;
   }>({});
-
-  /**
-   * =========================================================
-   * VALIDATION
-   * =========================================================
-   */
 
   const validate = () => {
     const newErrors: {
@@ -60,49 +54,38 @@ export default function RegisterPage() {
       email?: string;
       phone?: string;
       password?: string;
+      turnstile?: string;
     } = {};
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     const phoneRegex = /^[0-9+() -]{8,15}$/;
 
     if (!fullName.trim()) {
-      newErrors.fullName = t(
-        "register.fullNameRequired"
-      );
+      newErrors.fullName = t("register.fullNameRequired");
     } else if (fullName.trim().length < 2) {
-      newErrors.fullName = t(
-        "register.fullNameMin"
-      );
+      newErrors.fullName = t("register.fullNameMin");
     }
 
     if (!email.trim()) {
-      newErrors.email = t(
-        "register.emailRequired"
-      );
+      newErrors.email = t("register.emailRequired");
     } else if (!emailRegex.test(email.trim())) {
-      newErrors.email = t(
-        "register.emailInvalid"
-      );
+      newErrors.email = t("register.emailInvalid");
     }
 
     if (!phone.trim()) {
-      newErrors.phone = t(
-        "register.phoneRequired"
-      );
+      newErrors.phone = t("register.phoneRequired");
     } else if (!phoneRegex.test(phone.trim())) {
-      newErrors.phone = t(
-        "register.phoneInvalid"
-      );
+      newErrors.phone = t("register.phoneInvalid");
     }
 
     if (!password) {
-      newErrors.password = t(
-        "register.passwordRequired"
-      );
+      newErrors.password = t("register.passwordRequired");
     } else if (password.length < 6) {
-      newErrors.password = t(
-        "register.passwordMin"
-      );
+      newErrors.password = t("register.passwordMin");
+    }
+
+    if (!turnstileToken) {
+      newErrors.turnstile = "Please complete the Cloudflare verification.";
     }
 
     setErrors(newErrors);
@@ -110,67 +93,116 @@ export default function RegisterPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  /**
-   * =========================================================
-   * REGISTER
-   * =========================================================
-   */
+  const getServerError = (err: any): string => {
+    return (
+      err?.response?.data?.status?.message ||
+      err?.response?.data?.message ||
+      err?.message ||
+      ""
+    );
+  };
 
-  const handleRegister = async (
-    e: FormEvent<HTMLFormElement>
-  ) => {
+  const isDuplicateRegistrationError = (err: any) => {
+    const status = err?.response?.status;
+
+    const message = getServerError(err).toLowerCase();
+
+    if (status === 409) {
+      return true;
+    }
+
+    return (
+      message.includes("already exists") ||
+      message.includes("already registered") ||
+      message.includes("email exists") ||
+      message.includes("email already") ||
+      message.includes("user exists") ||
+      message.includes("duplicate")
+    );
+  };
+
+  const handleRegister = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+
+    if (loading) {
+      return;
+    }
+
+    setErrorMsg(null);
+    setSuccessMsg(null);
 
     if (!validate()) {
       return;
     }
 
     setLoading(true);
-    setErrorMsg(null);
 
     const cleanEmail = email.trim().toLowerCase();
     const cleanFullName = fullName.trim();
     const cleanPhone = phone.trim();
 
     try {
+      /*
+       * IMPORTANT:
+       *
+       * AuthService.register() should ONLY create the account/send OTP.
+       *
+       * It must NOT call persistSession().
+       */
       await AuthService.register({
         fullName: cleanFullName,
         email: cleanEmail,
         phone: cleanPhone,
         password,
+        turnstileToken,
       });
 
-      /**
-       * Go to OTP verification page.
+      setSuccessMsg("Registration successful. Please verify your email.");
+
+      /*
+       * No sessionStorage writes here.
+       *
+       * User is not logged in yet.
        */
-      router.push(
-        `/verify-otp?email=${encodeURIComponent(
-          cleanEmail
-        )}`
-      );
+      router.push(`/verify-otp?email=${encodeURIComponent(cleanEmail)}`);
     } catch (err: any) {
-      setErrorMsg(
-        err?.response?.data?.status?.message ||
-          err?.response?.data?.message ||
-          t("register.failed")
-      );
+      const isDuplicate = isDuplicateRegistrationError(err);
+
+      // 👇 CHANGED: a 409 duplicate-email is an EXPECTED, already-handled
+      // outcome (we show a friendly message + "Go to Sign In" link right
+      // below) — not a real bug. Only log to console when something
+      // genuinely unexpected happened, so the browser console stays clean
+      // for actual errors worth investigating. The 409 network request
+      // itself will still show up in DevTools' Network tab regardless —
+      // that's the browser's own logging and can't be suppressed from here.
+      if (!isDuplicate) {
+        console.error("Registration failed:", err);
+      }
+
+      if (isDuplicate) {
+        setErrorMsg(
+          "This email is already registered. Please sign in instead.",
+        );
+
+        /*
+         * Put the existing email back into the form.
+         * User can immediately click Sign In.
+         */
+        setEmail(cleanEmail);
+
+        return;
+      }
+
+      const serverError = getServerError(err);
+
+      setErrorMsg(serverError || t("register.failed"));
     } finally {
       setLoading(false);
     }
   };
 
-  /**
-   * =========================================================
-   * CLEAR FIELD ERROR
-   * =========================================================
-   */
-
   const clearFieldError = (
-    field:
-      | "fullName"
-      | "email"
-      | "phone"
-      | "password"
+    field: "fullName" | "email" | "phone" | "password" | "turnstile",
   ) => {
     if (errors[field]) {
       setErrors((prev) => ({
@@ -180,174 +212,168 @@ export default function RegisterPage() {
     }
   };
 
-  /**
-   * =========================================================
-   * THEME CLASSES
-   * =========================================================
-   *
-   * IMPORTANT:
-   *
-   * Do not hard-code bg-slate-950 / text-white everywhere.
-   *
-   * These classes change depending on SettingsContext.
-   */
+  /*
 
+* STYLES
+* Same visual design as Login page
+  */
   const pageClass = isLight
     ? "bg-slate-100 text-slate-900"
     : "bg-slate-950 text-slate-100";
 
   const cardClass = isLight
-    ? "border-slate-200 bg-white shadow-xl shadow-slate-300/40"
-    : "border-slate-800 bg-slate-900/90 shadow-2xl";
+    ? "border border-slate-300 bg-white/90 shadow-2xl shadow-slate-300/50 backdrop-blur-2xl"
+    : "border border-sky-500/20 bg-slate-900/80 shadow-[0_0_50px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.1)] backdrop-blur-2xl";
 
-  const titleClass = isLight
-    ? "text-slate-900"
-    : "text-white";
+  const titleClass = isLight ? "text-slate-900" : "text-white";
 
-  const descriptionClass = isLight
-    ? "text-slate-500"
-    : "text-slate-400";
+  const descriptionClass = isLight ? "text-slate-500" : "text-slate-400";
 
-  const labelClass = isLight
-    ? "text-slate-600"
-    : "text-slate-400";
+  const labelClass = isLight ? "text-slate-700" : "text-amber-400/90";
 
   const inputClass = isLight
-    ? "bg-white text-slate-900 border-slate-300 placeholder:text-slate-400"
-    : "bg-slate-950 text-white border-slate-800 placeholder:text-slate-600";
+    ? "bg-slate-50 text-slate-900 border-slate-300 placeholder:text-slate-400 focus:border-red-500 focus:ring-2 focus:ring-red-500/20"
+    : "bg-slate-950/80 text-white border-slate-800/80 placeholder:text-slate-500 focus:border-amber-500/60 focus:ring-2 focus:ring-amber-500/20";
 
-  const iconClass = isLight
-    ? "text-slate-400"
-    : "text-slate-500";
+  const iconClass = isLight ? "text-slate-400" : "text-amber-500/70";
 
   const passwordButtonClass = isLight
     ? "text-slate-400 hover:text-slate-600"
-    : "text-slate-500 hover:text-slate-300";
+    : "text-slate-400 hover:text-amber-400";
 
-  const footerTextClass = isLight
-    ? "text-slate-500"
-    : "text-slate-400";
+  const footerTextClass = isLight ? "text-slate-500" : "text-slate-400";
 
-  /**
-   * =========================================================
-   * UI
-   * =========================================================
-   */
+  const dividerLineClass = isLight ? "border-slate-200" : "border-slate-800/80";
+
+  const dividerTextClass = isLight ? "text-slate-400" : "text-slate-500";
 
   return (
     <div
-      className={`
+      className={`         min-h-[85vh]
         flex
-        min-h-screen
         items-center
         justify-center
-        p-4
+        py-12
+        px-4
         transition-colors
         duration-300
         ${pageClass}
       `}
     >
       <div
-        className={`
-          w-full
+        className={`           w-full
           max-w-md
+          rounded-[2.5rem]
+          p-8
+          sm:p-10
           space-y-6
-          rounded-3xl
-          border
-          p-6
-          backdrop-blur-xl
-          transition-colors
+          transition-all
           duration-300
-          sm:p-8
+          relative
+          overflow-hidden
           ${cardClass}
         `}
       >
-        {/* ===================================================
-            HEADER
-        =================================================== */}
-
-        <div className="space-y-2 text-center">
-          <div className="mb-2 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-red-600 shadow-lg shadow-red-600/30">
-            <Film className="h-6 w-6 text-white" />
+        {/* Same ambient glow as Login */}{" "}
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
+        {/* HEADER */}
+        <div className="space-y-3 text-center relative z-10">
+          <div className="mx-auto flex w-40 items-center justify-center py-1 drop-shadow-[0_4px_16px_rgba(245,158,11,0.3)]">
+            <img
+              src="/logo2.png"
+              alt="Logo"
+              className="h-12 w-full object-contain"
+            />
           </div>
 
           <h1
             className={`
-              text-2xl
-              font-black
-              tracking-tight
-              transition-colors
-              duration-300
-              ${titleClass}
-            `}
+          text-2xl
+          font-black
+          tracking-tight
+          transition-colors
+          duration-300
+          ${titleClass}
+        `}
           >
             {t("register.title")}
           </h1>
 
           <p
             className={`
-              text-xs
-              transition-colors
-              duration-300
-              ${descriptionClass}
-            `}
+          text-xs
+          transition-colors
+          duration-300
+          ${descriptionClass}
+        `}
           >
             {t("register.subtitle")}
           </p>
         </div>
+        {/* SUCCESS */}
+        {successMsg && (
+          <div className="flex items-start gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3.5 text-xs text-emerald-500 relative z-10">
+            <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
 
-        {/* ===================================================
-            ERROR MESSAGE
-        =================================================== */}
-
-        {errorMsg && (
-          <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-500">
-            <AlertCircle className="h-4 w-4 shrink-0" />
-
-            <span>{errorMsg}</span>
+            <span className="flex-1 font-medium">{successMsg}</span>
           </div>
         )}
+        {/* ERROR */}
+        {errorMsg && (
+          <div className="flex items-start gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 p-3.5 text-xs text-red-500 relative z-10">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
 
-        {/* ===================================================
-            REGISTER FORM
-        =================================================== */}
+            <div className="flex-1">
+              <p className="font-medium">{errorMsg}</p>
 
+              {errorMsg.includes("already registered") && (
+                <Link
+                  href={`/login?email=${encodeURIComponent(
+                    email.trim().toLowerCase(),
+                  )}`}
+                  className="mt-1.5 inline-flex items-center gap-1 font-bold text-red-500 hover:text-red-400 transition-colors"
+                >
+                  Go to Sign In
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
         <form
           onSubmit={handleRegister}
           noValidate
-          className="space-y-3.5 text-xs"
+          className="space-y-4 text-xs relative z-10"
         >
-          {/* =================================================
-              FULL NAME
-          ================================================= */}
-
+          {/* FULL NAME */}
           <div>
             <label
               className={`
-                mb-1
-                block
-                font-semibold
-                transition-colors
-                duration-300
-                ${labelClass}
-              `}
+            block
+            mb-1.5
+            font-semibold
+            tracking-wide
+            transition-colors
+            duration-300
+            ${labelClass}
+          `}
             >
-              {t("register.fullName")} *
+              {t("register.fullName")} <span className="text-amber-500">*</span>
             </label>
 
             <div className="relative">
               <User
                 className={`
-                  absolute
-                  left-3.5
-                  top-1/2
-                  h-4
-                  w-4
-                  -translate-y-1/2
-                  transition-colors
-                  duration-300
-                  ${iconClass}
-                `}
+              absolute
+              left-4
+              top-1/2
+              -translate-y-1/2
+              h-4
+              w-4
+              transition-colors
+              duration-300
+              ${iconClass}
+            `}
               />
 
               <input
@@ -358,70 +384,63 @@ export default function RegisterPage() {
                 onChange={(e) => {
                   setFullName(e.target.value);
                   clearFieldError("fullName");
+                  setErrorMsg(null);
                 }}
-                placeholder={t(
-                  "register.fullNamePlaceholder"
-                )}
+                placeholder={t("register.fullNamePlaceholder")}
                 className={`
-                  w-full
-                  rounded-xl
-                  border
-                  py-2.5
-                  pl-10
-                  pr-3
-                  outline-none
-                  transition-all
-                  duration-300
-                  disabled:cursor-not-allowed
-                  disabled:opacity-50
-                  ${inputClass}
-                  ${
-                    errors.fullName
-                      ? "border-red-500 focus:border-red-500"
-                      : "focus:border-red-500"
-                  }
-                `}
+              w-full
+              rounded-2xl
+              border
+              py-3.5
+              pl-11
+              pr-4
+              outline-none
+              transition-all
+              duration-300
+              disabled:opacity-50
+              disabled:cursor-not-allowed
+              ${inputClass}
+              ${errors.fullName ? "border-red-500" : ""}
+            `}
               />
             </div>
 
             {errors.fullName && (
-              <p className="mt-1 text-[11px] text-red-500">
+              <p className="mt-1.5 text-[11px] text-red-500 font-medium pl-1">
                 {errors.fullName}
               </p>
             )}
           </div>
 
-          {/* =================================================
-              EMAIL
-          ================================================= */}
-
+          {/* EMAIL */}
           <div>
             <label
               className={`
-                mb-1
-                block
-                font-semibold
-                transition-colors
-                duration-300
-                ${labelClass}
-              `}
+            block
+            mb-1.5
+            font-semibold
+            tracking-wide
+            transition-colors
+            duration-300
+            ${labelClass}
+          `}
             >
-              {t("register.email")} *
+              {t("register.email")} <span className="text-amber-500">*</span>
             </label>
 
             <div className="relative">
               <Mail
                 className={`
-                  absolute
-                  left-3.5
-                  top-1/2
-                  h-4
-                  w-4
-                  -translate-y-1/2
-                  transition-colors
-                  duration-300
-                  ${iconClass}
-                `}
+              absolute
+              left-4
+              top-1/2
+              -translate-y-1/2
+              h-4
+              w-4
+              transition-colors
+              duration-300
+              ${iconClass}
+            `}
               />
 
               <input
@@ -432,70 +451,63 @@ export default function RegisterPage() {
                 onChange={(e) => {
                   setEmail(e.target.value);
                   clearFieldError("email");
+                  setErrorMsg(null);
                 }}
-                placeholder={t(
-                  "register.emailPlaceholder"
-                )}
+                placeholder={t("register.emailPlaceholder")}
                 className={`
-                  w-full
-                  rounded-xl
-                  border
-                  py-2.5
-                  pl-10
-                  pr-3
-                  outline-none
-                  transition-all
-                  duration-300
-                  disabled:cursor-not-allowed
-                  disabled:opacity-50
-                  ${inputClass}
-                  ${
-                    errors.email
-                      ? "border-red-500 focus:border-red-500"
-                      : "focus:border-red-500"
-                  }
-                `}
+              w-full
+              rounded-2xl
+              border
+              py-3.5
+              pl-11
+              pr-4
+              outline-none
+              transition-all
+              duration-300
+              disabled:opacity-50
+              disabled:cursor-not-allowed
+              ${inputClass}
+              ${errors.email ? "border-red-500" : ""}
+            `}
               />
             </div>
 
             {errors.email && (
-              <p className="mt-1 text-[11px] text-red-500">
+              <p className="mt-1.5 text-[11px] text-red-500 font-medium pl-1">
                 {errors.email}
               </p>
             )}
           </div>
 
-          {/* =================================================
-              PHONE
-          ================================================= */}
-
+          {/* PHONE */}
           <div>
             <label
               className={`
-                mb-1
-                block
-                font-semibold
-                transition-colors
-                duration-300
-                ${labelClass}
-              `}
+            block
+            mb-1.5
+            font-semibold
+            tracking-wide
+            transition-colors
+            duration-300
+            ${labelClass}
+          `}
             >
-              {t("register.phone")} *
+              {t("register.phone")} <span className="text-amber-500">*</span>
             </label>
 
             <div className="relative">
               <Phone
                 className={`
-                  absolute
-                  left-3.5
-                  top-1/2
-                  h-4
-                  w-4
-                  -translate-y-1/2
-                  transition-colors
-                  duration-300
-                  ${iconClass}
-                `}
+              absolute
+              left-4
+              top-1/2
+              -translate-y-1/2
+              h-4
+              w-4
+              transition-colors
+              duration-300
+              ${iconClass}
+            `}
               />
 
               <input
@@ -506,134 +518,108 @@ export default function RegisterPage() {
                 onChange={(e) => {
                   setPhone(e.target.value);
                   clearFieldError("phone");
+                  setErrorMsg(null);
                 }}
-                placeholder={t(
-                  "register.phonePlaceholder"
-                )}
+                placeholder={t("register.phonePlaceholder")}
                 className={`
-                  w-full
-                  rounded-xl
-                  border
-                  py-2.5
-                  pl-10
-                  pr-3
-                  outline-none
-                  transition-all
-                  duration-300
-                  disabled:cursor-not-allowed
-                  disabled:opacity-50
-                  ${inputClass}
-                  ${
-                    errors.phone
-                      ? "border-red-500 focus:border-red-500"
-                      : "focus:border-red-500"
-                  }
-                `}
+              w-full
+              rounded-2xl
+              border
+              py-3.5
+              pl-11
+              pr-4
+              outline-none
+              transition-all
+              duration-300
+              disabled:opacity-50
+              disabled:cursor-not-allowed
+              ${inputClass}
+              ${errors.phone ? "border-red-500" : ""}
+            `}
               />
             </div>
 
             {errors.phone && (
-              <p className="mt-1 text-[11px] text-red-500">
+              <p className="mt-1.5 text-[11px] text-red-500 font-medium pl-1">
                 {errors.phone}
               </p>
             )}
           </div>
 
-          {/* =================================================
-              PASSWORD
-          ================================================= */}
-
+          {/* PASSWORD */}
           <div>
             <label
               className={`
-                mb-1
-                block
-                font-semibold
-                transition-colors
-                duration-300
-                ${labelClass}
-              `}
+            block
+            mb-1.5
+            font-semibold
+            tracking-wide
+            transition-colors
+            duration-300
+            ${labelClass}
+          `}
             >
-              {t("register.password")} *
+              {t("register.password")} <span className="text-amber-500">*</span>
             </label>
 
             <div className="relative">
               <Lock
                 className={`
-                  absolute
-                  left-3.5
-                  top-1/2
-                  h-4
-                  w-4
-                  -translate-y-1/2
-                  transition-colors
-                  duration-300
-                  ${iconClass}
-                `}
+              absolute
+              left-4
+              top-1/2
+              -translate-y-1/2
+              h-4
+              w-4
+              transition-colors
+              duration-300
+              ${iconClass}
+            `}
               />
 
               <input
-                type={
-                  showPassword
-                    ? "text"
-                    : "password"
-                }
+                type={showPassword ? "text" : "password"}
                 autoComplete="new-password"
                 disabled={loading}
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
                   clearFieldError("password");
+                  setErrorMsg(null);
                 }}
-                placeholder={t(
-                  "register.passwordPlaceholder"
-                )}
+                placeholder={t("register.passwordPlaceholder")}
                 className={`
-                  w-full
-                  rounded-xl
-                  border
-                  py-2.5
-                  pl-10
-                  pr-10
-                  outline-none
-                  transition-all
-                  duration-300
-                  disabled:cursor-not-allowed
-                  disabled:opacity-50
-                  ${inputClass}
-                  ${
-                    errors.password
-                      ? "border-red-500 focus:border-red-500"
-                      : "focus:border-red-500"
-                  }
-                `}
+              w-full
+              rounded-2xl
+              border
+              py-3.5
+              pl-11
+              pr-11
+              outline-none
+              transition-all
+              duration-300
+              disabled:opacity-50
+              disabled:cursor-not-allowed
+              ${inputClass}
+              ${errors.password ? "border-red-500" : ""}
+            `}
               />
 
               <button
                 type="button"
-                onClick={() =>
-                  setShowPassword(
-                    (value) => !value
-                  )
-                }
+                onClick={() => setShowPassword((value) => !value)}
                 tabIndex={-1}
                 disabled={loading}
-                aria-label={
-                  showPassword
-                    ? "Hide password"
-                    : "Show password"
-                }
+                aria-label={showPassword ? "Hide password" : "Show password"}
                 className={`
-                  absolute
-                  right-3.5
-                  top-1/2
-                  -translate-y-1/2
-                  cursor-pointer
-                  transition-colors
-                  disabled:cursor-not-allowed
-                  disabled:opacity-50
-                  ${passwordButtonClass}
-                `}
+              absolute
+              right-4
+              top-1/2
+              -translate-y-1/2
+              transition-colors
+              disabled:opacity-50
+              ${passwordButtonClass}
+            `}
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />
@@ -644,77 +630,127 @@ export default function RegisterPage() {
             </div>
 
             {errors.password && (
-              <p className="mt-1 text-[11px] text-red-500">
+              <p className="mt-1.5 text-[11px] text-red-500 font-medium pl-1">
                 {errors.password}
               </p>
             )}
           </div>
 
-          {/* =================================================
-              SUBMIT
-          ================================================= */}
+          {/* TURNSTILE */}
+          <div className="my-4 w-full">
+            <Turnstile
+              siteKey="0x4AAAAAAEpf88txuioOhN0W"
+              options={{
+                theme: isLight ? "light" : "dark",
+                size: "flexible",
+              }}
+              className="w-full"
+              onSuccess={(token) => {
+                setTurnstileToken(token);
+                clearFieldError("turnstile");
+              }}
+              onExpire={() => {
+                setTurnstileToken(null);
+              }}
+            />
 
+            {errors.turnstile && (
+              <p className="mt-2 text-[11px] text-red-500 font-medium text-center">
+                {errors.turnstile}
+              </p>
+            )}
+          </div>
+
+          {/* REGISTER BUTTON */}
           <button
             type="submit"
             disabled={loading}
             className="
-              flex
-              w-full
-              cursor-pointer
-              items-center
-              justify-center
-              gap-2
-              rounded-xl
-              bg-red-600
-              py-3
-              text-xs
-              font-bold
-              text-white
-              shadow-lg
-              shadow-red-600/30
-              transition
-              hover:bg-red-500
-              disabled:cursor-not-allowed
-              disabled:opacity-50
-            "
+          flex
+          w-full
+          items-center
+          justify-center
+          gap-2
+          rounded-2xl
+          bg-gradient-to-r
+          from-amber-500
+          to-red-600
+          py-4
+          text-xs
+          font-extrabold
+          uppercase
+          tracking-wider
+          text-slate-950
+          shadow-[0_0_25px_rgba(245,158,11,0.4)]
+          hover:from-amber-400
+          hover:to-red-500
+          hover:shadow-[0_0_35px_rgba(245,158,11,0.6)]
+          disabled:opacity-50
+          transition-all
+          duration-300
+          cursor-pointer
+          disabled:cursor-not-allowed
+        "
           >
             {loading && (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
             )}
 
             <span>
-              {loading
-                ? t("register.creating")
-                : t("register.signUp")}
+              {loading ? t("register.creating") : t("register.signUp")}
             </span>
+
+            {!loading && <ArrowRight className="h-4 w-4 stroke-[3]" />}
           </button>
         </form>
+        {/* SOCIAL */}
+        <div className="flex items-center gap-3 relative z-10">
+          <div className={`h-px flex-1 ${dividerLineClass}`} />
 
-        {/* ===================================================
-            LOGIN LINK
-        =================================================== */}
+          <span
+            className={`
+          text-[10px]
+          font-semibold
+          uppercase
+          tracking-wider
+          ${dividerTextClass}
+        `}
+          >
+            Or continue with
+          </span>
 
+          <div className={`h-px flex-1 ${dividerLineClass}`} />
+        </div>
+        <div className="relative z-10">
+          <SocialLoginButtons isLight={isLight} />
+        </div>
+        {/* FOOTER */}
         <p
           className={`
-            text-center
-            text-xs
-            transition-colors
-            duration-300
-            ${footerTextClass}
-          `}
+        text-center
+        text-xs
+        transition-colors
+        duration-300
+        relative
+        z-10
+        ${footerTextClass}
+      `}
         >
           {t("register.haveAccount")}{" "}
-
           <Link
             href="/login"
             className="
-              font-bold
-              text-red-500
-              transition
-              hover:text-red-400
-            "
+          font-bold
+          text-amber-400
+          hover:text-amber-300
+          transition-colors
+          inline-flex
+          items-center
+          gap-1
+        "
           >
             {t("register.signIn")}
+            <ArrowRight className="h-3 w-3" />
           </Link>
         </p>
       </div>

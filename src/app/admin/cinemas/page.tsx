@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, FormEvent } from "react";
+import { useEffect, useState, useMemo, FormEvent, ChangeEvent } from "react";
 import {
   Building2,
   Plus,
@@ -17,6 +17,8 @@ import {
   Archive,
   RotateCcw,
   Sparkles,
+  Upload,
+  Image as ImageIcon,
 } from "lucide-react";
 import CinemaService from "@/app/service/cinema.service";
 import HallService from "@/app/service/hall.service";
@@ -29,6 +31,7 @@ import {
 } from "@/app/types/api.types";
 import Toast from "@/app/components/Toast";
 import ConfirmDialog from "@/app/components/ConfirmDialog";
+import { useSettings } from "@/app/context/SettingsContext";
 
 const HALL_TYPE_COLORS: Record<HallType, string> = {
   STANDARD_2D: "bg-slate-800 text-slate-300 border-slate-700",
@@ -46,7 +49,22 @@ const extractArray = <T,>(res: any): T[] => {
   return [];
 };
 
+const getImageUrl = (imagePath?: string) => {
+  if (!imagePath) return null;
+  if (imagePath.startsWith("http")) return imagePath;
+  const cleanPath = imagePath.startsWith("/")
+    ? imagePath.substring(1)
+    : imagePath;
+  if (cleanPath.startsWith("uploads/")) {
+    return `http://localhost:8080/${cleanPath}`;
+  }
+  return `http://localhost:8080/uploads/${cleanPath}`;
+};
+
 export default function AdminCinemasPage() {
+  const { theme } = useSettings();
+  const isLight = theme === "light";
+
   const [cinemas, setCinemas] = useState<CinemaResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -54,21 +72,29 @@ export default function AdminCinemasPage() {
 
   // Cinema Form State & Validation
   const [isCinemaModalOpen, setIsCinemaModalOpen] = useState(false);
-  const [editingCinema, setEditingCinema] = useState<CinemaResponse | null>(null);
+  const [editingCinema, setEditingCinema] = useState<CinemaResponse | null>(
+    null,
+  );
   const [cinemaForm, setCinemaForm] = useState<CinemaRequest>({
     name: "",
     city: "Phnom Penh",
     address: "",
     phone: "",
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [cinemaErrors, setCinemaErrors] = useState<Partial<CinemaRequest>>({});
 
   // Halls Quick Viewer / Creator State
-  const [selectedCinemaForHalls, setSelectedCinemaForHalls] = useState<CinemaResponse | null>(null);
+  const [selectedCinemaForHalls, setSelectedCinemaForHalls] =
+    useState<CinemaResponse | null>(null);
   const [halls, setHalls] = useState<HallResponse[]>([]);
   const [hallsLoading, setHallsLoading] = useState(false);
   const [isHallModalOpen, setIsHallModalOpen] = useState(false);
-  const [hallForm, setHallForm] = useState<{ name: string; hallType: HallType }>({
+  const [hallForm, setHallForm] = useState<{
+    name: string;
+    hallType: HallType;
+  }>({
     name: "",
     hallType: "STANDARD_2D",
   });
@@ -98,7 +124,10 @@ export default function AdminCinemasPage() {
     type: "success",
   });
 
-  const showToast = (message: string, type: "success" | "error" | "info" = "success") => {
+  const showToast = (
+    message: string,
+    type: "success" | "error" | "info" = "success",
+  ) => {
     setToast({ message, type });
   };
 
@@ -133,6 +162,7 @@ export default function AdminCinemasPage() {
 
   const openCinemaModal = (cinema?: CinemaResponse) => {
     setCinemaErrors({});
+    setSelectedFile(null);
     if (cinema) {
       setEditingCinema(cinema);
       setCinemaForm({
@@ -141,11 +171,28 @@ export default function AdminCinemasPage() {
         address: cinema.address,
         phone: cinema.phone,
       });
+      setImagePreview(getImageUrl(cinema.image));
     } else {
       setEditingCinema(null);
       setCinemaForm({ name: "", city: "Phnom Penh", address: "", phone: "" });
+      setImagePreview(null);
     }
     setIsCinemaModalOpen(true);
+  };
+
+  const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  // Clear or remove image preview and queued file
+  const handleRemoveImage = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedFile(null);
+    setImagePreview(null);
   };
 
   // Cinema Create & Update
@@ -156,19 +203,37 @@ export default function AdminCinemasPage() {
     setSubmitting(true);
     try {
       if (editingCinema) {
-        const updated = await CinemaService.updateCinema(editingCinema.id, cinemaForm);
-        setCinemas((prev) => prev.map((c) => (c.id === editingCinema.id ? updated : c)));
-        showToast(`Branch "${cinemaForm.name}" updated successfully!`, "success");
+        // If imagePreview is null and selectedFile is null, pass null or empty to signal deletion if your backend supports it
+        const updated = await CinemaService.updateCinema(
+          editingCinema.id,
+          cinemaForm,
+          selectedFile || undefined,
+        );
+        setCinemas((prev) =>
+          prev.map((c) => (c.id === editingCinema.id ? updated : c)),
+        );
+        showToast(
+          `Branch "${cinemaForm.name}" updated successfully!`,
+          "success",
+        );
       } else {
-        const created = await CinemaService.createCinema(cinemaForm);
+        const created = await CinemaService.createCinema(
+          cinemaForm,
+          selectedFile || undefined,
+        );
         setCinemas((prev) => [created, ...prev]);
-        showToast(`Branch "${cinemaForm.name}" created successfully!`, "success");
+        showToast(
+          `Branch "${cinemaForm.name}" created successfully!`,
+          "success",
+        );
       }
       setIsCinemaModalOpen(false);
     } catch (err: any) {
       showToast(
-        err.response?.data?.status?.message || err.response?.data?.message || "Operation failed.",
-        "error"
+        err.response?.data?.status?.message ||
+          err.response?.data?.message ||
+          "Operation failed.",
+        "error",
       );
     } finally {
       setSubmitting(false);
@@ -254,8 +319,8 @@ export default function AdminCinemasPage() {
         prev.map((c) =>
           c.id === selectedCinemaForHalls.id
             ? { ...c, totalHalls: (c.totalHalls || 0) + 1 }
-            : c
-        )
+            : c,
+        ),
       );
       setHallForm({ name: "", hallType: "STANDARD_2D" });
       setIsHallModalOpen(false);
@@ -263,7 +328,7 @@ export default function AdminCinemasPage() {
     } catch (err: any) {
       showToast(
         err.response?.data?.status?.message || "Failed to create hall.",
-        "error"
+        "error",
       );
     } finally {
       setSubmitting(false);
@@ -285,8 +350,8 @@ export default function AdminCinemasPage() {
             prev.map((c) =>
               c.id === selectedCinemaForHalls.id
                 ? { ...c, totalHalls: Math.max((c.totalHalls || 1) - 1, 0) }
-                : c
-            )
+                : c,
+            ),
           );
         }
         showToast(`Hall "${hall.name}" permanently deleted.`, "success");
@@ -300,12 +365,55 @@ export default function AdminCinemasPage() {
       (c) =>
         c.name?.toLowerCase().includes(query) ||
         c.city?.toLowerCase().includes(query) ||
-        c.address?.toLowerCase().includes(query)
+        c.address?.toLowerCase().includes(query),
     );
   }, [cinemas, searchQuery]);
 
+  const pageClass = isLight
+    ? "bg-slate-50 text-slate-900"
+    : "bg-slate-950 text-slate-100";
+
+  const cardClass = isLight
+    ? "border-slate-300 bg-white shadow-xl shadow-slate-200 ring-1 ring-slate-200"
+    : "border-slate-800 bg-slate-900/60 shadow-2xl backdrop-blur-md";
+
+  const subCardClass = isLight
+    ? "border-slate-300 bg-slate-100/70 text-slate-800 shadow-sm"
+    : "border-slate-800 bg-slate-950/60 text-slate-200";
+
+  const inputClass = isLight
+    ? "border-slate-300 bg-slate-50 text-slate-900 placeholder-slate-400 focus:border-red-500"
+    : "border-slate-800 bg-slate-900/90 text-white placeholder-slate-500 focus:border-red-500";
+
+  const modalBgClass = isLight
+    ? "border-slate-300 bg-white shadow-2xl shadow-slate-300/60 text-slate-900 ring-1 ring-slate-200"
+    : "border-slate-800 bg-slate-900 shadow-2xl text-slate-100";
+
+  const textPrimary = isLight
+    ? "text-slate-900 font-black"
+    : "text-white font-black";
+  const textSecondary = isLight
+    ? "text-slate-700 font-bold"
+    : "text-slate-400 font-medium";
+  const textMuted = isLight
+    ? "text-slate-600 font-bold"
+    : "text-slate-600 font-medium";
+  const borderCol = isLight ? "border-slate-300" : "border-slate-800";
+
   return (
-    <div className="p-4 sm:p-8 max-w-7xl mx-auto space-y-6">
+    <div
+      className={`min-h-screen py-6 px-4 sm:px-8 lg:px-10 w-full space-y-6 transition-colors duration-300 pb-24 ${pageClass}`}
+    >
+      <style jsx global>{`
+        ::-webkit-scrollbar {
+          display: none;
+        }
+        * {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+
       {/* Toast Alert Notification */}
       <Toast
         message={toast.message}
@@ -324,25 +432,34 @@ export default function AdminCinemasPage() {
           await confirmDialog.action();
           setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
         }}
-        onCancel={() => setConfirmDialog((prev) => ({ ...prev, isOpen: false }))}
+        onCancel={() =>
+          setConfirmDialog((prev) => ({ ...prev, isOpen: false }))
+        }
       />
 
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      <div
+        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b ${borderCol} pb-5`}
+      >
         <div>
           <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-500 shrink-0">
+            <div className="p-2 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-600 shrink-0">
               <Building2 className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white flex items-center gap-2">
+              <h1
+                className={`text-xl sm:text-2xl font-black tracking-tight ${textPrimary} flex items-center gap-2`}
+              >
                 Cinemas & Branches
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                <span
+                  className={`text-[10px] font-black px-2 py-0.5 rounded-full ${isLight ? "bg-white text-slate-800 border-slate-300 shadow-sm" : "bg-slate-800 text-slate-400 border-slate-700"} border`}
+                >
                   {filteredCinemas.length} Total
                 </span>
               </h1>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Manage theater complexes, addresses, contact lines, and screening halls
+              <p className={`text-xs ${textSecondary} mt-0.5`}>
+                Manage theater complexes, cover images, addresses, contact
+                lines, and screening halls
               </p>
             </div>
           </div>
@@ -353,8 +470,10 @@ export default function AdminCinemasPage() {
             onClick={() => setViewTrash(!viewTrash)}
             className={`flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-xs font-bold transition cursor-pointer border shadow-sm ${
               viewTrash
-                ? "bg-amber-500/10 border-amber-500/30 text-amber-400"
-                : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
+                ? "bg-amber-500/10 border-amber-500/30 text-amber-500"
+                : isLight
+                  ? "bg-white border-slate-300 text-slate-700 hover:text-slate-900 hover:bg-slate-50 shadow-sm"
+                  : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
             }`}
           >
             <Archive className="h-4 w-4" />
@@ -375,13 +494,15 @@ export default function AdminCinemasPage() {
 
       {/* Search Bar */}
       <div className="relative max-w-md">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-500" />
+        <Search
+          className={`absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 ${textSecondary}`}
+        />
         <input
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search by branch name, city (e.g. Siem Reap), or address..."
-          className="w-full rounded-2xl border border-slate-800 bg-slate-900/90 py-3 pl-10 pr-4 text-xs font-medium text-white placeholder-slate-500 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 shadow-lg transition"
+          className={`w-full rounded-2xl border py-3 pl-10 pr-4 text-xs font-bold outline-none focus:ring-1 focus:ring-red-500 shadow-lg transition ${inputClass}`}
         />
       </div>
 
@@ -391,124 +512,168 @@ export default function AdminCinemasPage() {
           <Loader2 className="h-8 w-8 animate-spin text-red-600" />
         </div>
       ) : filteredCinemas.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredCinemas.map((cinema) => (
-            <div
-              key={cinema.id}
-              className="group rounded-3xl border border-slate-800/80 bg-slate-900/60 p-5 backdrop-blur-md shadow-xl flex flex-col justify-between hover:border-slate-700 transition"
-            >
-              <div className="space-y-3.5">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500/20 to-rose-500/5 border border-red-500/20 text-red-400 font-bold shadow-inner">
-                      <Building2 className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm font-bold text-white truncate group-hover:text-red-400 transition">
-                        {cinema.name}
-                      </h3>
-                      <span className="inline-block rounded-md bg-slate-800/80 border border-slate-700/80 px-2 py-0.5 text-[10px] font-semibold text-slate-300 mt-1">
-                        {cinema.city}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {filteredCinemas.map((cinema) => {
+            const cinemaImg = getImageUrl(cinema.image);
+            return (
+              <div
+                key={cinema.id}
+                className={`group rounded-3xl border ${cardClass} shadow-xl flex flex-col hover:border-slate-400 dark:hover:border-slate-700 transition overflow-hidden h-[310px]`}
+              >
+                {/* TOP 70% IMAGE BANNER CONTAINER */}
+                <div className="relative h-[70%] w-full overflow-hidden border-b border-slate-300 dark:border-slate-800 bg-slate-900">
+                  {cinemaImg ? (
+                    <img
+                      src={cinemaImg}
+                      alt={cinema.name}
+                      className="absolute inset-0 h-full w-full object-cover group-hover:scale-105 transition duration-500"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-red-600/20 via-rose-600/10 to-slate-900 text-red-500">
+                      <Building2 className="h-8 w-8 opacity-60 mb-0.5" />
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        CinemaX Branch
                       </span>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-1 shrink-0">
-                    {!viewTrash ? (
-                      <>
-                        <button
-                          onClick={() => openCinemaModal(cinema)}
-                          className="p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
-                          title="Edit Branch"
-                        >
-                          <Edit3 className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleSoftDeleteCinema(cinema)}
-                          className="p-1.5 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition cursor-pointer"
-                          title="Move to Trash"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => handleRestoreCinema(cinema)}
-                          className="p-1.5 rounded-xl text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 transition cursor-pointer"
-                          title="Restore Branch"
-                        >
-                          <RotateCcw className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleHardDeleteCinema(cinema)}
-                          className="p-1.5 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition cursor-pointer"
-                          title="Delete Permanently"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </>
-                    )}
-                  </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
+                  <span className="absolute bottom-2 left-2 rounded-md bg-slate-900/80 backdrop-blur-md border border-slate-700/80 px-2 py-0.5 text-[9px] font-bold text-white shadow">
+                    {cinema.city}
+                  </span>
                 </div>
 
-                <div className="space-y-2 text-xs text-slate-400 border-t border-slate-800/80 pt-3 font-medium">
-                  <div className="flex items-start gap-2">
-                    <MapPin className="h-3.5 w-3.5 text-red-500 shrink-0 mt-0.5" />
-                    <span className="line-clamp-2">{cinema.address}</span>
+                {/* BOTTOM 30% TEXT CONTENT CONTAINER */}
+                <div className="h-[30%] px-3.5 py-2.5 flex flex-col justify-between">
+                  <div className="space-y-0.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3
+                        className={`text-xs font-black ${textPrimary} truncate group-hover:text-red-600 transition`}
+                      >
+                        {cinema.name}
+                      </h3>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {!viewTrash ? (
+                          <>
+                            <button
+                              onClick={() => openCinemaModal(cinema)}
+                              className={`p-1 rounded-xl ${isLight ? "text-slate-600 hover:text-slate-900 hover:bg-slate-200" : "text-slate-400 hover:text-white hover:bg-slate-800"} transition cursor-pointer`}
+                              title="Edit Branch"
+                            >
+                              <Edit3 className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleSoftDeleteCinema(cinema)}
+                              className="p-1 rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 transition cursor-pointer"
+                              title="Move to Trash"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => handleRestoreCinema(cinema)}
+                              className="p-1 rounded-xl text-emerald-500 hover:text-emerald-600 hover:bg-emerald-500/10 transition cursor-pointer"
+                              title="Restore Branch"
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleHardDeleteCinema(cinema)}
+                              className="p-1 rounded-xl text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 transition cursor-pointer"
+                              title="Delete Permanently"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    <div
+                      className={`flex items-center justify-between text-[11px] ${textSecondary} font-semibold`}
+                    >
+                      <div className="flex items-center gap-1 truncate pr-2">
+                        <MapPin className="h-3 w-3 text-red-600 shrink-0" />
+                        <span className="truncate">{cinema.address}</span>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Phone className="h-3 w-3 text-slate-400 shrink-0" />
+                        <span className={`font-mono ${textPrimary}`}>
+                          {cinema.phone}
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-3.5 w-3.5 text-slate-500 shrink-0" />
-                    <span className="font-mono text-slate-300">{cinema.phone}</span>
-                  </div>
+
+                  {!viewTrash && (
+                    <div
+                      className={`pt-1 border-t ${borderCol} flex items-center justify-between`}
+                    >
+                      <div
+                        className={`flex items-center gap-1 text-[11px] font-black ${textPrimary}`}
+                      >
+                        <Tv className="h-3 w-3 text-red-600" />
+                        <span>{cinema.totalHalls || 0} Halls</span>
+                      </div>
+
+                      <button
+                        onClick={() => openHallsModal(cinema)}
+                        className={`flex items-center gap-1 rounded-lg border ${isLight ? "border-slate-300 bg-slate-100 text-slate-900 hover:bg-slate-200" : "border-slate-700 bg-slate-800/80 text-white hover:bg-slate-700"} px-2.5 py-0.5 text-[10px] font-bold transition cursor-pointer shadow-sm`}
+                      >
+                        <Eye className="h-3 w-3 text-slate-400" />
+                        <span>View Halls</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
-
-              {!viewTrash && (
-                <div className="mt-5 pt-3 border-t border-slate-800/80 flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-300">
-                    <Tv className="h-3.5 w-3.5 text-red-400" />
-                    <span>{cinema.totalHalls || 0} Halls</span>
-                  </div>
-
-                  <button
-                    onClick={() => openHallsModal(cinema)}
-                    className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800/80 px-3 py-1.5 text-xs font-bold text-white hover:bg-slate-700 transition cursor-pointer shadow-sm"
-                  >
-                    <Eye className="h-3.5 w-3.5 text-slate-400" />
-                    <span>View Halls</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
-        <div className="flex min-h-[30vh] flex-col items-center justify-center rounded-3xl border border-slate-800 bg-slate-900/30 p-8 text-center text-slate-400 text-sm space-y-2">
-          <Building2 className="h-10 w-10 text-slate-600 mb-1" />
-          <p className="font-semibold text-slate-300">{viewTrash ? "Trash bin is empty." : "No cinema branches found."}</p>
-          <p className="text-xs text-slate-500">{viewTrash ? "Deleted branches will appear here." : "Click 'Add Cinema Branch' to register your first branch."}</p>
+        <div
+          className={`flex min-h-[30vh] flex-col items-center justify-center rounded-3xl border ${cardClass} p-8 text-center ${textSecondary} text-sm space-y-2`}
+        >
+          <Building2 className={`h-10 w-10 ${textMuted} mb-1`} />
+          <p className={`font-black ${textPrimary}`}>
+            {viewTrash ? "Trash bin is empty." : "No cinema branches found."}
+          </p>
+          <p className={`text-xs ${textSecondary}`}>
+            {viewTrash
+              ? "Deleted branches will appear here."
+              : "Click 'Add Cinema Branch' to register your first branch."}
+          </p>
         </div>
       )}
 
       {/* Quick Halls Modal */}
       {selectedCinemaForHalls && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-2xl rounded-3xl border border-slate-800 bg-slate-900 p-6 sm:p-8 shadow-2xl space-y-5">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div
+            className={`relative w-full max-w-2xl rounded-3xl border p-6 sm:p-8 shadow-2xl space-y-5 ${modalBgClass}`}
+          >
             <button
               onClick={() => setSelectedCinemaForHalls(null)}
-              className="absolute right-5 top-5 text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-slate-800 transition"
+              className={`absolute right-5 top-5 ${textSecondary} hover:${textPrimary} cursor-pointer p-1 rounded-lg ${isLight ? "hover:bg-slate-100" : "hover:bg-slate-800"} transition`}
             >
               <X className="h-5 w-5" />
             </button>
 
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4 pr-8">
+            <div
+              className={`flex items-center justify-between border-b ${borderCol} pb-4 pr-8`}
+            >
               <div>
-                <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                  <Film className="h-5 w-5 text-red-500" />
+                <h2
+                  className={`text-base sm:text-lg font-black ${textPrimary} flex items-center gap-2`}
+                >
+                  <Film className="h-5 w-5 text-red-600" />
                   Halls in {selectedCinemaForHalls.name}
                 </h2>
-                <p className="text-xs text-slate-400 mt-0.5">{selectedCinemaForHalls.address}</p>
+                <p className={`text-xs ${textSecondary} mt-0.5`}>
+                  {selectedCinemaForHalls.address}
+                </p>
               </div>
 
               <button
@@ -525,20 +690,26 @@ export default function AdminCinemasPage() {
                 <Loader2 className="h-6 w-6 animate-spin text-red-600" />
               </div>
             ) : halls.length > 0 ? (
-              <div className="max-h-[50vh] overflow-y-auto space-y-2.5 pr-1 scrollbar-thin scrollbar-thumb-slate-800">
+              <div className="max-h-[50vh] overflow-y-auto space-y-2.5 pr-1">
                 {halls.map((hall) => {
-                  const badgeClass = HALL_TYPE_COLORS[hall.hallType] || HALL_TYPE_COLORS.STANDARD_2D;
+                  const badgeClass =
+                    HALL_TYPE_COLORS[hall.hallType] ||
+                    HALL_TYPE_COLORS.STANDARD_2D;
                   return (
                     <div
                       key={hall.id}
-                      className="flex items-center justify-between p-3.5 rounded-2xl border border-slate-800 bg-slate-950/60"
+                      className={`flex items-center justify-between p-3.5 rounded-2xl border ${subCardClass}`}
                     >
                       <div className="flex items-center gap-3">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-800 font-bold text-white text-xs border border-slate-700/60">
+                        <div
+                          className={`flex h-9 w-9 items-center justify-center rounded-xl ${isLight ? "bg-white text-slate-900 border-slate-300 font-black shadow-sm" : "bg-slate-800 text-white border-slate-700/60 font-bold"} text-xs border`}
+                        >
                           {hall.name.substring(0, 2).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-bold text-white text-xs">{hall.name}</p>
+                          <p className={`font-black ${textPrimary} text-xs`}>
+                            {hall.name}
+                          </p>
                           <span
                             className={`inline-block mt-0.5 rounded-md border px-2 py-0.5 text-[9px] font-bold ${badgeClass}`}
                           >
@@ -548,12 +719,14 @@ export default function AdminCinemasPage() {
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span className="text-xs text-slate-400 font-mono">
+                        <span
+                          className={`text-xs ${textSecondary} font-mono font-bold`}
+                        >
                           {hall.totalSeats || 0} Seats
                         </span>
                         <button
                           onClick={() => handleDeleteHall(hall)}
-                          className="p-1.5 rounded-lg text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition cursor-pointer"
+                          className="p-1.5 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 transition cursor-pointer"
                           title="Delete Hall"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -564,8 +737,9 @@ export default function AdminCinemasPage() {
                 })}
               </div>
             ) : (
-              <div className="py-8 text-center text-xs text-slate-500">
-                No halls registered for this cinema branch yet. Click &quot;New Hall&quot; to add one.
+              <div className={`py-8 text-center text-xs ${textSecondary}`}>
+                No halls registered for this cinema branch yet. Click &quot;New
+                Hall&quot; to add one.
               </div>
             )}
           </div>
@@ -574,65 +748,152 @@ export default function AdminCinemasPage() {
 
       {/* Add / Edit Cinema Modal */}
       {isCinemaModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-md rounded-3xl border border-slate-800 bg-slate-900 p-6 sm:p-8 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div
+            className={`relative w-full max-w-md rounded-3xl border p-6 sm:p-8 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto ${modalBgClass}`}
+          >
             <button
               onClick={() => setIsCinemaModalOpen(false)}
-              className="absolute right-5 top-5 text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-slate-800 transition"
+              className={`absolute right-5 top-5 ${textSecondary} hover:${textPrimary} cursor-pointer p-1 rounded-lg ${isLight ? "hover:bg-slate-100" : "hover:bg-slate-800"} transition`}
             >
               <X className="h-5 w-5" />
             </button>
 
-            <div className="border-b border-slate-800 pb-3">
-              <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-red-500" />
+            <div className={`border-b ${borderCol} pb-3`}>
+              <h2
+                className={`text-base sm:text-lg font-black ${textPrimary} flex items-center gap-2`}
+              >
+                <Sparkles className="h-4 w-4 text-red-600" />
                 {editingCinema ? "Edit Cinema Branch" : "Add Cinema Branch"}
               </h2>
             </div>
 
-            <form onSubmit={handleCinemaSubmit} noValidate className="space-y-3.5 text-xs">
+            <form
+              onSubmit={handleCinemaSubmit}
+              noValidate
+              className="space-y-3.5 text-xs"
+            >
+              {/* Image Upload Input with Delete option */}
               <div>
-                <label className="block text-slate-300 mb-1 font-semibold">Cinema Name *</label>
+                <label
+                  className={`block ${isLight ? "text-slate-800" : "text-slate-300"} mb-1 font-bold`}
+                >
+                  Cinema Cover Image
+                </label>
+                <div className="flex items-center gap-4">
+                  <div
+                    className={`relative h-16 w-24 rounded-xl border ${borderCol} ${isLight ? "bg-white shadow-sm" : "bg-slate-950"} overflow-hidden flex items-center justify-center shrink-0`}
+                  >
+                    {imagePreview ? (
+                      <>
+                        <img
+                          src={imagePreview}
+                          alt="Preview"
+                          className="absolute inset-0 h-full w-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleRemoveImage}
+                          className="absolute top-1 right-1 p-1 rounded-full bg-rose-600 text-white hover:bg-rose-500 shadow transition cursor-pointer"
+                          title="Remove image"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </>
+                    ) : (
+                      <ImageIcon className="h-6 w-6 text-slate-400" />
+                    )}
+                  </div>
+                  <label
+                    className={`flex-1 flex flex-col items-center justify-center border-2 border-dashed ${isLight ? "border-slate-300 bg-white hover:bg-slate-50" : "border-slate-700/80 bg-slate-950/60 hover:bg-slate-800/40"} rounded-xl p-3 transition cursor-pointer text-center shadow-sm`}
+                  >
+                    <Upload className="h-4 w-4 text-red-600 mb-1" />
+                    <span
+                      className={`text-[11px] font-bold ${isLight ? "text-slate-800" : "text-slate-300"}`}
+                    >
+                      Choose image file
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  className={`block ${isLight ? "text-slate-800" : "text-slate-300"} mb-1 font-bold`}
+                >
+                  Cinema Name *
+                </label>
                 <input
                   type="text"
                   value={cinemaForm.name}
                   onChange={(e) => {
                     setCinemaForm({ ...cinemaForm, name: e.target.value });
-                    if (cinemaErrors.name) setCinemaErrors((p) => ({ ...p, name: undefined }));
+                    if (cinemaErrors.name)
+                      setCinemaErrors((p) => ({ ...p, name: undefined }));
                   }}
                   placeholder="e.g. CinemaX Siem Reap Heritage"
-                  className={`w-full rounded-xl border bg-slate-950 p-2.5 text-white outline-none transition ${
-                    cinemaErrors.name ? "border-rose-500 focus:border-rose-500" : "border-slate-800 focus:border-red-500"
+                  className={`w-full rounded-xl border ${isLight ? "bg-white text-slate-900 border-slate-300 shadow-sm" : "bg-slate-950 text-white border-slate-800"} p-2.5 outline-none font-bold transition ${
+                    cinemaErrors.name
+                      ? "border-rose-500 focus:border-rose-500"
+                      : "focus:border-red-500"
                   }`}
                 />
-                {cinemaErrors.name && <p className="mt-1 text-[11px] text-rose-400">{cinemaErrors.name}</p>}
+                {cinemaErrors.name && (
+                  <p className="mt-1 text-[11px] text-rose-500">
+                    {cinemaErrors.name}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-slate-300 mb-1 font-semibold">City / Location *</label>
+                <label
+                  className={`block ${isLight ? "text-slate-800" : "text-slate-300"} mb-1 font-bold`}
+                >
+                  City / Location *
+                </label>
                 <input
                   type="text"
                   value={cinemaForm.city}
                   onChange={(e) => {
                     setCinemaForm({ ...cinemaForm, city: e.target.value });
-                    if (cinemaErrors.city) setCinemaErrors((p) => ({ ...p, city: undefined }));
+                    if (cinemaErrors.city)
+                      setCinemaErrors((p) => ({ ...p, city: undefined }));
                   }}
                   placeholder="e.g. Phnom Penh, Siem Reap, Battambang"
-                  className={`w-full rounded-xl border bg-slate-950 p-2.5 text-white outline-none transition ${
-                    cinemaErrors.city ? "border-rose-500 focus:border-rose-500" : "border-slate-800 focus:border-red-500"
+                  className={`w-full rounded-xl border ${isLight ? "bg-white text-slate-900 border-slate-300 shadow-sm" : "bg-slate-950 text-white border-slate-800"} p-2.5 outline-none font-bold transition ${
+                    cinemaErrors.city
+                      ? "border-rose-500 focus:border-rose-500"
+                      : "focus:border-red-500"
                   }`}
                 />
-                {cinemaErrors.city && <p className="mt-1 text-[11px] text-rose-400">{cinemaErrors.city}</p>}
-                
+                {cinemaErrors.city && (
+                  <p className="mt-1 text-[11px] text-rose-500">
+                    {cinemaErrors.city}
+                  </p>
+                )}
+
                 {/* Quick select pills */}
-                <div className="flex items-center gap-1.5 mt-1.5">
-                  <span className="text-[10px] text-slate-500">Quick set:</span>
-                  {["Phnom Penh", "Siem Reap", "Battambang", "Sihanoukville"].map((city) => (
+                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                  <span className="text-[10px] font-bold text-slate-500">
+                    Quick set:
+                  </span>
+                  {[
+                    "Phnom Penh",
+                    "Siem Reap",
+                    "Battambang",
+                    "Sihanoukville",
+                  ].map((city) => (
                     <button
                       key={city}
                       type="button"
                       onClick={() => setCinemaForm({ ...cinemaForm, city })}
-                      className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer"
+                      className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isLight ? "bg-slate-200 hover:bg-slate-300 text-slate-800" : "bg-slate-800 hover:bg-slate-700 text-slate-300"} transition cursor-pointer`}
                     >
                       {city}
                     </button>
@@ -641,44 +902,68 @@ export default function AdminCinemasPage() {
               </div>
 
               <div>
-                <label className="block text-slate-300 mb-1 font-semibold">Full Address *</label>
+                <label
+                  className={`block ${isLight ? "text-slate-800" : "text-slate-300"} mb-1 font-bold`}
+                >
+                  Full Address *
+                </label>
                 <textarea
                   rows={2}
                   value={cinemaForm.address}
                   onChange={(e) => {
                     setCinemaForm({ ...cinemaForm, address: e.target.value });
-                    if (cinemaErrors.address) setCinemaErrors((p) => ({ ...p, address: undefined }));
+                    if (cinemaErrors.address)
+                      setCinemaErrors((p) => ({ ...p, address: undefined }));
                   }}
                   placeholder="Street address, District, City"
-                  className={`w-full rounded-xl border bg-slate-950 p-2.5 text-white outline-none resize-none transition ${
-                    cinemaErrors.address ? "border-rose-500 focus:border-rose-500" : "border-slate-800 focus:border-red-500"
+                  className={`w-full rounded-xl border ${isLight ? "bg-white text-slate-900 border-slate-300 shadow-sm" : "bg-slate-950 text-white border-slate-800"} p-2.5 outline-none font-bold resize-none transition ${
+                    cinemaErrors.address
+                      ? "border-rose-500 focus:border-rose-500"
+                      : "focus:border-red-500"
                   }`}
                 />
-                {cinemaErrors.address && <p className="mt-1 text-[11px] text-rose-400">{cinemaErrors.address}</p>}
+                {cinemaErrors.address && (
+                  <p className="mt-1 text-[11px] text-rose-500">
+                    {cinemaErrors.address}
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-slate-300 mb-1 font-semibold">Contact Phone *</label>
+                <label
+                  className={`block ${isLight ? "text-slate-800" : "text-slate-300"} mb-1 font-bold`}
+                >
+                  Contact Phone *
+                </label>
                 <input
                   type="tel"
                   value={cinemaForm.phone}
                   onChange={(e) => {
                     setCinemaForm({ ...cinemaForm, phone: e.target.value });
-                    if (cinemaErrors.phone) setCinemaErrors((p) => ({ ...p, phone: undefined }));
+                    if (cinemaErrors.phone)
+                      setCinemaErrors((p) => ({ ...p, phone: undefined }));
                   }}
                   placeholder="023 999 888"
-                  className={`w-full rounded-xl border bg-slate-950 p-2.5 text-white outline-none transition ${
-                    cinemaErrors.phone ? "border-rose-500 focus:border-rose-500" : "border-slate-800 focus:border-red-500"
+                  className={`w-full rounded-xl border ${isLight ? "bg-white text-slate-900 border-slate-300 shadow-sm" : "bg-slate-950 text-white border-slate-800"} p-2.5 outline-none font-bold font-mono transition ${
+                    cinemaErrors.phone
+                      ? "border-rose-500 focus:border-rose-500"
+                      : "focus:border-red-500"
                   }`}
                 />
-                {cinemaErrors.phone && <p className="mt-1 text-[11px] text-rose-400">{cinemaErrors.phone}</p>}
+                {cinemaErrors.phone && (
+                  <p className="mt-1 text-[11px] text-rose-500">
+                    {cinemaErrors.phone}
+                  </p>
+                )}
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+              <div
+                className={`flex justify-end gap-2.5 pt-3 border-t ${borderCol}`}
+              >
                 <button
                   type="button"
                   onClick={() => setIsCinemaModalOpen(false)}
-                  className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer transition"
+                  className={`rounded-xl border ${isLight ? "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 shadow-sm font-bold" : "border-slate-800 bg-slate-950 text-slate-400 hover:text-white"} px-4 py-2 text-xs cursor-pointer transition`}
                 >
                   Cancel
                 </button>
@@ -687,8 +972,12 @@ export default function AdminCinemasPage() {
                   disabled={submitting}
                   className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-red-600/30 hover:from-red-500 hover:to-rose-500 disabled:opacity-50 cursor-pointer transition"
                 >
-                  {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                  <span>{editingCinema ? "Save Changes" : "Create Branch"}</span>
+                  {submitting && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  )}
+                  <span>
+                    {editingCinema ? "Save Changes" : "Create Branch"}
+                  </span>
                 </button>
               </div>
             </form>
@@ -698,22 +987,34 @@ export default function AdminCinemasPage() {
 
       {/* Add New Hall Modal */}
       {isHallModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-sm rounded-3xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div
+            className={`relative w-full max-w-sm rounded-3xl border p-6 shadow-2xl space-y-4 ${modalBgClass}`}
+          >
             <button
               onClick={() => setIsHallModalOpen(false)}
-              className="absolute right-5 top-5 text-slate-400 hover:text-white cursor-pointer p-1 rounded-lg hover:bg-slate-800 transition"
+              className={`absolute right-5 top-5 ${textSecondary} hover:${textPrimary} cursor-pointer p-1 rounded-lg ${isLight ? "hover:bg-slate-100" : "hover:bg-slate-800"} transition`}
             >
               <X className="h-5 w-5" />
             </button>
 
-            <h2 className="text-base font-bold text-white border-b border-slate-800 pb-3">
+            <h2
+              className={`text-base font-black ${textPrimary} border-b ${borderCol} pb-3`}
+            >
               Add Hall to {selectedCinemaForHalls?.name}
             </h2>
 
-            <form onSubmit={handleAddHallSubmit} noValidate className="space-y-4 text-xs">
+            <form
+              onSubmit={handleAddHallSubmit}
+              noValidate
+              className="space-y-4 text-xs"
+            >
               <div>
-                <label className="block text-slate-300 mb-1 font-semibold">Hall Name / Number *</label>
+                <label
+                  className={`block ${isLight ? "text-slate-800" : "text-slate-300"} mb-1 font-bold`}
+                >
+                  Hall Name / Number *
+                </label>
                 <input
                   type="text"
                   value={hallForm.name}
@@ -722,21 +1023,32 @@ export default function AdminCinemasPage() {
                     if (hallError) setHallError(null);
                   }}
                   placeholder="e.g. Hall 1, Screen IMAX"
-                  className={`w-full rounded-xl border bg-slate-950 p-2.5 text-white outline-none transition ${
-                    hallError ? "border-rose-500 focus:border-rose-500" : "border-slate-800 focus:border-red-500"
+                  className={`w-full rounded-xl border ${isLight ? "bg-white text-slate-900 border-slate-300 shadow-sm" : "bg-slate-950 text-white border-slate-800"} p-2.5 outline-none font-bold transition ${
+                    hallError
+                      ? "border-rose-500 focus:border-rose-500"
+                      : "focus:border-red-500"
                   }`}
                 />
-                {hallError && <p className="mt-1 text-[11px] text-rose-400">{hallError}</p>}
+                {hallError && (
+                  <p className="mt-1 text-[11px] text-rose-500">{hallError}</p>
+                )}
               </div>
 
               <div>
-                <label className="block text-slate-300 mb-1 font-semibold">Hall Format *</label>
+                <label
+                  className={`block ${isLight ? "text-slate-800" : "text-slate-300"} mb-1 font-bold`}
+                >
+                  Hall Format *
+                </label>
                 <select
                   value={hallForm.hallType}
                   onChange={(e) =>
-                    setHallForm({ ...hallForm, hallType: e.target.value as HallType })
+                    setHallForm({
+                      ...hallForm,
+                      hallType: e.target.value as HallType,
+                    })
                   }
-                  className="w-full rounded-xl border border-slate-800 bg-slate-950 p-2.5 text-white outline-none focus:border-red-500 cursor-pointer"
+                  className={`w-full rounded-xl border ${isLight ? "bg-white text-slate-900 border-slate-300 shadow-sm font-bold" : "bg-slate-950 text-white border-slate-800"} p-2.5 outline-none focus:border-red-500 cursor-pointer`}
                 >
                   <option value="STANDARD_2D">Standard 2D</option>
                   <option value="STANDARD_3D">Standard 3D</option>
@@ -746,11 +1058,13 @@ export default function AdminCinemasPage() {
                 </select>
               </div>
 
-              <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-800">
+              <div
+                className={`flex justify-end gap-2.5 pt-3 border-t ${borderCol}`}
+              >
                 <button
                   type="button"
                   onClick={() => setIsHallModalOpen(false)}
-                  className="rounded-xl border border-slate-800 bg-slate-950 px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer transition"
+                  className={`rounded-xl border ${isLight ? "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 shadow-sm font-bold" : "border-slate-800 bg-slate-950 text-slate-400 hover:text-white"} px-4 py-2 text-xs cursor-pointer transition`}
                 >
                   Cancel
                 </button>
@@ -759,7 +1073,9 @@ export default function AdminCinemasPage() {
                   disabled={submitting}
                   className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-5 py-2 text-xs font-bold text-white shadow-lg shadow-red-600/30 hover:from-red-500 hover:to-rose-500 disabled:opacity-50 cursor-pointer transition"
                 >
-                  {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  {submitting && (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  )}
                   <span>Add Hall</span>
                 </button>
               </div>

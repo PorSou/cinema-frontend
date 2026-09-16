@@ -8,6 +8,7 @@ import { SettingsProvider } from "@/app/context/SettingsContext";
 import { LanguageProvider } from "@/app/context/LanguageContext";
 import { ToastProvider } from "@/app/context/ToastContext";
 import { FavoritesProvider } from "@/app/context/FavoritesContext";
+import AosInit from "@/app/components/AosInit"; // 🌟 NEW: AOS Client Initializer
 
 const inter = Inter({
   subsets: ["latin"],
@@ -62,13 +63,18 @@ export default function RootLayout({
       >
         <LanguageProvider>
           <SettingsProvider>
-            <LogoSplashLoader />
+            <ToastProvider>
+              <FavoritesProvider>
+                {/* 🌟 Initialize AOS Client-side */}
+                <AosInit />
 
-            <Navbar />
+                <LogoSplashLoader />
 
-            <main className="min-h-screen flex-1">
-              {children}
-            </main>
+                <Navbar />
+
+                <main className="min-h-screen flex-1">{children}</main>
+              </FavoritesProvider>
+            </ToastProvider>
           </SettingsProvider>
         </LanguageProvider>
       </body>

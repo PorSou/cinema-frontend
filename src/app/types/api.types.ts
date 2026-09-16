@@ -1,8 +1,17 @@
 // ==========================================
 // 1. Enums
 // ==========================================
-export type BookingStatus = "PENDING" | "CONFIRMED" | "CHECKED_IN" | "CANCELLED";
-export type HallType = "STANDARD_2D" | "STANDARD_3D" | "IMAX" | "VIP" | "KIDS_HALL";
+export type BookingStatus =
+  | "PENDING"
+  | "CONFIRMED"
+  | "CHECKED_IN"
+  | "CANCELLED";
+export type HallType =
+  | "STANDARD_2D"
+  | "STANDARD_3D"
+  | "IMAX"
+  | "VIP"
+  | "KIDS_HALL";
 export type MovieStatus = "NOW_SHOWING" | "COMING_SOON" | "ENDED";
 export type PaymentMethod = "KHQR_BAKONG" | "STRIPE_CARD" | "CASH";
 export type PaymentStatus = "PENDING" | "COMPLETED" | "FAILED" | "REFUNDED";
@@ -54,6 +63,7 @@ export interface UserResponse {
   email: string;
   fullName: string;
   phone?: string;
+  avatarUrl?: string | null;
   role: Role;
   isActive?: boolean;
   isDeleted?: boolean; // Matches Spring Backend SoftDelete status
@@ -74,11 +84,13 @@ export interface AuthResponse {
   refreshToken: string;
   tokenType: string;
   user: UserResponse;
+  isNewUser?: boolean;
 }
 
 export interface LoginRequest {
   email: string;
   password?: string;
+  turnstileToken?: string | null;
 }
 
 export interface RegisterRequest {
@@ -86,6 +98,7 @@ export interface RegisterRequest {
   email: string;
   phone: string;
   password?: string;
+  turnstileToken?: string | null;
 }
 
 export interface VerifyOtpRequest {
@@ -100,7 +113,11 @@ export interface RefreshTokenRequest {
 export interface ForgotPasswordRequest {
   email: string;
 }
-
+export interface CashPaymentRequest {
+  bookingId: number;
+  paymentMethod: string;
+  voucherCode?: string; // <-- Add this property
+}
 export interface ResetPasswordRequest {
   email: string;
   code: string;
@@ -130,6 +147,7 @@ export interface CinemaResponse {
   city: string;
   address: string;
   phone: string;
+  image?: string;
   totalHalls: number;
   createdAt?: string;
   updatedAt?: string;
@@ -316,11 +334,12 @@ export interface SeatAvailabilityResponse {
   seatCode: string;
   seatRow: string;
   seatNumber: number;
-  seatType: SeatType;
+  seatType: string;
+  gridX: number;
+  gridY: number;
   calculatedPrice: number;
-  isAvailable: boolean;
-  gridX?: number;
-  gridY?: number;
+  isAvailable: boolean; // Must match backend boolean
+  availabilityStatus: "AVAILABLE" | "RESERVED" | "BOOKED";
 }
 
 export interface ShowtimeSeatLayoutResponse {

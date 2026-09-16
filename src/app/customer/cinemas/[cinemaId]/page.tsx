@@ -53,8 +53,9 @@ const PAGE_TEXT: Record<
     cinemasLocations: "All Cinemas",
     failedLoad: "Failed to load showtimes for this branch.",
     allDates: "All Dates",
-    noShowtimes: "No showtimes scheduled at this branch",
-    noShowtimesDate: "No showtimes scheduled at this branch for this date",
+    noShowtimes: "No upcoming showtimes scheduled at this branch",
+    noShowtimesDate:
+      "No upcoming showtimes scheduled at this branch for this date",
     checkBack: "Check back soon or try a different date.",
     differentDate: "Check back soon or try a different date.",
     seats: "Seats",
@@ -69,8 +70,8 @@ const PAGE_TEXT: Record<
     cinemasLocations: "រោងកុនទាំងអស់",
     failedLoad: "មិនអាចផ្ទុកម៉ោងបញ្ចាំងសម្រាប់សាខានេះបានទេ។",
     allDates: "គ្រប់កាលបរិច្ឆេទ",
-    noShowtimes: "មិនមានម៉ោងបញ្ចាំងនៅសាខានេះទេ",
-    noShowtimesDate: "មិនមានម៉ោងបញ្ចាំងនៅសាខានេះសម្រាប់កាលបរិច្ឆេទនេះទេ",
+    noShowtimes: "មិនមានម៉ោងបញ្ចាំងខាងមុខនៅសាខានេះទេ",
+    noShowtimesDate: "មិនមានម៉ោងបញ្ចាំងខាងមុខនៅសាខានេះសម្រាប់កាលបរិច្ឆេទនេះទេ",
     checkBack: "សូមពិនិត្យម្តងទៀតនៅពេលក្រោយ ឬសាកល្បងកាលបរិច្ឆេទផ្សេង។",
     differentDate: "សូមសាកល្បងកាលបរិច្ឆេទផ្សេង។",
     seats: "កៅអី",
@@ -85,8 +86,8 @@ const PAGE_TEXT: Record<
     cinemasLocations: "所有影院",
     failedLoad: "无法加载该影院分店的放映时间。",
     allDates: "所有日期",
-    noShowtimes: "该影院分店暂无放映时间",
-    noShowtimesDate: "该影院分店在此日期暂无放映时间",
+    noShowtimes: "该影院分店暂无即将上映的场次",
+    noShowtimesDate: "该影院分店在此日期暂无即将上映的场次",
     checkBack: "请稍后再试，或选择其他日期。",
     differentDate: "请尝试其他日期。",
     seats: "座位",
@@ -108,7 +109,7 @@ const extractArray = <T,>(res: any): T[] => {
 
 const formatShowDateTime = (
   raw?: string,
-  language: Language = "en"
+  language: Language = "en",
 ): { time: string; date: string } => {
   if (!raw) {
     return {
@@ -172,12 +173,10 @@ export default function CustomerCinemaDetailPage() {
 
   const [selectedDate, setSelectedDate] = useState<string>("");
 
-  const [posterMap, setPosterMap] = useState<Map<number, string>>(
-    new Map()
-  );
+  const [posterMap, setPosterMap] = useState<Map<number, string>>(new Map());
 
   const [brokenPosterIds, setBrokenPosterIds] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
 
   const [toast, setToast] = useState<{
@@ -197,27 +196,19 @@ export default function CustomerCinemaDetailPage() {
       try {
         const [cinemaRes, showtimeRes] = await Promise.all([
           CinemaService.getAllCinemas(),
-          ShowtimeService.getAllShowtimes(
-            0,
-            SHOWTIME_FETCH_SIZE
-          ),
+          ShowtimeService.getAllShowtimes(0, SHOWTIME_FETCH_SIZE),
         ]);
 
-        const allCinemas =
-          extractArray<CinemaResponse>(cinemaRes);
+        const allCinemas = extractArray<CinemaResponse>(cinemaRes);
 
-        const match = allCinemas.find(
-          (c) => String(c.id) === String(cinemaId)
-        );
+        const match = allCinemas.find((c) => String(c.id) === String(cinemaId));
 
         setCinema(match || null);
 
-        const allShowtimes =
-          extractArray<ShowtimeResponse>(showtimeRes);
+        const allShowtimes = extractArray<ShowtimeResponse>(showtimeRes);
 
         const branchShowtimes = allShowtimes.filter(
-          (s) =>
-            String(s.cinemaId) === String(cinemaId)
+          (s) => String(s.cinemaId) === String(cinemaId),
         );
 
         setShowtimes(branchShowtimes);
@@ -228,19 +219,14 @@ export default function CustomerCinemaDetailPage() {
         let totalPages = 1;
 
         do {
-          const moviesRes =
-            await MovieService.getAllMovies({
-              page,
-              size: 50,
-            });
+          const moviesRes = await MovieService.getAllMovies({
+            page,
+            size: 50,
+          });
 
-          allMovies = [
-            ...allMovies,
-            ...extractArray<MovieResponse>(moviesRes),
-          ];
+          allMovies = [...allMovies, ...extractArray<MovieResponse>(moviesRes)];
 
-          totalPages =
-            (moviesRes as any)?.totalPages || 1;
+          totalPages = (moviesRes as any)?.totalPages || 1;
 
           page++;
         } while (page < totalPages);
@@ -269,32 +255,37 @@ export default function CustomerCinemaDetailPage() {
     loadCinemaAndShowtimes();
   }, [cinemaId, text.failedLoad]);
 
+  // Filter out past showtimes (only keep upcoming / future showtimes)
+  const upcomingShowtimes = useMemo(() => {
+    const now = new Date();
+    return showtimes.filter((s) => {
+      if (!s.startTime) return false;
+      const stDate = new Date(
+        s.startTime.includes("T") ? s.startTime : s.startTime.replace(" ", "T"),
+      );
+      return !isNaN(stDate.getTime()) && stDate.getTime() > now.getTime();
+    });
+  }, [showtimes]);
+
   const availableDates = useMemo(() => {
     const dates = new Set(
-      showtimes
-        .filter((s) => s.startTime)
-        .map((s) =>
-          s.startTime!
-            .replace("T", " ")
-            .split(" ")[0]
-        )
+      upcomingShowtimes.map(
+        (s) => s.startTime!.replace("T", " ").split(" ")[0],
+      ),
     );
 
     return Array.from(dates).sort();
-  }, [showtimes]);
+  }, [upcomingShowtimes]);
 
   const filteredShowtimes = useMemo(() => {
     if (!selectedDate) {
-      return showtimes;
+      return upcomingShowtimes;
     }
 
-    return showtimes.filter(
-      (s) =>
-        s.startTime
-          ?.replace("T", " ")
-          .split(" ")[0] === selectedDate
+    return upcomingShowtimes.filter(
+      (s) => s.startTime?.replace("T", " ").split(" ")[0] === selectedDate,
     );
-  }, [showtimes, selectedDate]);
+  }, [upcomingShowtimes, selectedDate]);
 
   const groupedByMovie = useMemo(() => {
     const map = new Map<
@@ -314,8 +305,7 @@ export default function CustomerCinemaDetailPage() {
         map.set(key, {
           movieId: s.movieId,
           movieTitle: s.movieTitle,
-          movieDurationMinutes:
-            s.movieDurationMinutes,
+          movieDurationMinutes: s.movieDurationMinutes,
           slots: [],
         });
       }
@@ -330,14 +320,10 @@ export default function CustomerCinemaDetailPage() {
     return (
       <div
         className={`flex min-h-screen items-center justify-center ${
-          isDark
-            ? "bg-[#0B0C10]"
-            : "bg-slate-50"
+          isDark ? "bg-[#0B0C10]" : "bg-slate-50"
         }`}
       >
-        <Loader2
-          className="h-8 w-8 animate-spin text-red-600"
-        />
+        <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
       </div>
     );
   }
@@ -346,24 +332,18 @@ export default function CustomerCinemaDetailPage() {
     return (
       <div
         className={`flex min-h-screen flex-col items-center justify-center px-4 text-center ${
-          isDark
-            ? "bg-[#0B0C10] text-slate-100"
-            : "bg-slate-50 text-slate-900"
+          isDark ? "bg-[#0B0C10] text-slate-100" : "bg-slate-50 text-slate-900"
         }`}
       >
         <Building2
           className={`h-10 w-10 ${
-            isDark
-              ? "text-slate-600"
-              : "text-slate-400"
+            isDark ? "text-slate-600" : "text-slate-400"
           }`}
         />
 
         <p
           className={`mt-3 text-sm font-bold ${
-            isDark
-              ? "text-white"
-              : "text-slate-900"
+            isDark ? "text-white" : "text-slate-900"
           }`}
         >
           {text.cinemaNotFound}
@@ -371,7 +351,7 @@ export default function CustomerCinemaDetailPage() {
 
         <Link
           href="/customer/cinemas"
-          className="mt-3 text-xs font-bold text-red-500 transition hover:text-red-400"
+          className="mt-3 text-xs font-bold text-amber-500 transition hover:text-amber-400"
         >
           ← {text.allCinemas}
         </Link>
@@ -382,9 +362,7 @@ export default function CustomerCinemaDetailPage() {
   return (
     <div
       className={`min-h-screen transition-colors duration-300 ${
-        isDark
-          ? "bg-[#0B0C10] text-slate-100"
-          : "bg-slate-50 text-slate-900"
+        isDark ? "bg-[#0B0C10] text-slate-100" : "bg-slate-50 text-slate-900"
       }`}
     >
       {/* Hide Scrollbar Style */}
@@ -392,7 +370,8 @@ export default function CustomerCinemaDetailPage() {
         ::-webkit-scrollbar {
           display: none;
         }
-        html, body {
+        html,
+        body {
           -ms-overflow-style: none;
           scrollbar-width: none;
         }
@@ -411,13 +390,10 @@ export default function CustomerCinemaDetailPage() {
       />
 
       <div className="mx-auto max-w-7xl space-y-8 px-4 py-10 sm:px-8">
-
         {/* Back */}
         <button
           type="button"
-          onClick={() =>
-            router.push("/customer/cinemas")
-          }
+          onClick={() => router.push("/customer/cinemas")}
           className={`flex cursor-pointer items-center gap-1.5 text-xs font-bold transition ${
             isDark
               ? "text-slate-400 hover:text-white"
@@ -433,16 +409,16 @@ export default function CustomerCinemaDetailPage() {
         <div
           className={`space-y-4 rounded-3xl border p-6 shadow-xl transition sm:p-8 ${
             isDark
-              ? "border-slate-800 bg-slate-900/60"
-              : "border-slate-200 bg-white"
+              ? "border-white/10 bg-slate-900/60 backdrop-blur-md"
+              : "border-slate-200 bg-white shadow-slate-200/50"
           }`}
         >
           <div className="flex items-start gap-4">
             <div
-              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border text-red-400 ${
+              className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border text-amber-400 ${
                 isDark
-                  ? "border-red-500/20 bg-gradient-to-br from-red-500/20 to-rose-500/5"
-                  : "border-red-100 bg-red-50"
+                  ? "border-amber-500/20 bg-gradient-to-br from-amber-500/20 to-rose-500/5"
+                  : "border-amber-100 bg-amber-50"
               }`}
             >
               <Building2 className="h-7 w-7" />
@@ -451,9 +427,7 @@ export default function CustomerCinemaDetailPage() {
             <div className="space-y-1.5">
               <h1
                 className={`text-2xl font-black sm:text-3xl ${
-                  isDark
-                    ? "text-white"
-                    : "text-slate-950"
+                  isDark ? "text-white" : "text-slate-950"
                 }`}
               >
                 {cinema.name}
@@ -474,24 +448,22 @@ export default function CustomerCinemaDetailPage() {
           <div
             className={`flex flex-col gap-3 border-t pt-4 text-xs sm:flex-row sm:items-center sm:gap-8 ${
               isDark
-                ? "border-slate-800 text-slate-400"
+                ? "border-white/10 text-slate-400"
                 : "border-slate-200 text-slate-500"
             }`}
           >
             <div className="flex items-start gap-2">
-              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-red-500" />
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
 
-              <span>{cinema.address}</span>
+              <span className="font-medium">{cinema.address}</span>
             </div>
 
             <div className="flex items-center gap-2">
-              <Phone className="h-3.5 w-3.5 shrink-0 text-red-500" />
+              <Phone className="h-3.5 w-3.5 shrink-0 text-amber-500" />
 
               <span
-                className={`font-mono ${
-                  isDark
-                    ? "text-slate-300"
-                    : "text-slate-700"
+                className={`font-mono font-bold ${
+                  isDark ? "text-slate-300" : "text-slate-700"
                 }`}
               >
                 {cinema.phone}
@@ -506,12 +478,12 @@ export default function CustomerCinemaDetailPage() {
             <button
               type="button"
               onClick={() => setSelectedDate("")}
-              className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition ${
+              className={`flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-black transition ${
                 selectedDate === ""
-                  ? "bg-red-600 text-white shadow-lg shadow-red-600/30"
+                  ? "bg-amber-500 border border-amber-500 text-slate-950 shadow-lg shadow-amber-500/25 scale-105"
                   : isDark
-                    ? "border border-slate-800 bg-slate-900 text-slate-400 hover:text-white"
-                    : "border border-slate-200 bg-white text-slate-500 hover:text-slate-950"
+                    ? "border border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
+                    : "border border-slate-200 bg-white text-slate-600 hover:text-slate-950 shadow-sm"
               }`}
             >
               <Calendar className="h-3.5 w-3.5" />
@@ -523,15 +495,13 @@ export default function CustomerCinemaDetailPage() {
               <button
                 key={date}
                 type="button"
-                onClick={() =>
-                  setSelectedDate(date)
-                }
-                className={`shrink-0 cursor-pointer rounded-xl px-4 py-2 font-mono text-xs font-bold transition ${
+                onClick={() => setSelectedDate(date)}
+                className={`shrink-0 cursor-pointer rounded-xl px-4 py-2 font-mono text-xs font-black transition ${
                   selectedDate === date
-                    ? "bg-red-600 text-white shadow-lg shadow-red-600/30"
+                    ? "bg-amber-500 border border-amber-500 text-slate-950 shadow-lg shadow-amber-500/25 scale-105"
                     : isDark
-                      ? "border border-slate-800 bg-slate-900 text-slate-400 hover:text-white"
-                      : "border border-slate-200 bg-white text-slate-500 hover:text-slate-950"
+                      ? "border border-white/10 bg-white/[0.04] text-slate-400 hover:text-white"
+                      : "border border-slate-200 bg-white text-slate-600 hover:text-slate-950 shadow-sm"
                 }`}
               >
                 {date}
@@ -544,35 +514,25 @@ export default function CustomerCinemaDetailPage() {
         {groupedByMovie.length > 0 ? (
           <div className="space-y-10">
             {groupedByMovie.map((group) => {
-              const posterFailed =
-                brokenPosterIds.has(
-                  group.movieId
-                );
+              const posterFailed = brokenPosterIds.has(group.movieId);
 
-              const realPoster =
-                posterMap.get(group.movieId);
+              const realPoster = posterMap.get(group.movieId);
 
-              const showPoster =
-                realPoster && !posterFailed;
+              const showPoster = realPoster && !posterFailed;
 
               return (
-                <div
-                  key={group.movieId}
-                  className="space-y-4"
-                >
+                <div key={group.movieId} className="space-y-4">
                   {/* Movie Header */}
                   <Link
                     href={`/customer/movies/${group.movieId}`}
                     className={`group flex items-center gap-4 border-b pb-4 transition ${
-                      isDark
-                        ? "border-slate-800"
-                        : "border-slate-200"
+                      isDark ? "border-white/10" : "border-slate-200"
                     }`}
                   >
                     <div
                       className={`relative h-20 w-14 shrink-0 overflow-hidden rounded-xl border shadow-lg ${
                         isDark
-                          ? "border-slate-800 bg-slate-900"
+                          ? "border-white/10 bg-slate-900"
                           : "border-slate-200 bg-white"
                       }`}
                     >
@@ -582,26 +542,19 @@ export default function CustomerCinemaDetailPage() {
                           alt={group.movieTitle}
                           className="h-full w-full object-cover"
                           onError={() =>
-                            setBrokenPosterIds(
-                              (prev) => {
-                                const next =
-                                  new Set(prev);
+                            setBrokenPosterIds((prev) => {
+                              const next = new Set(prev);
 
-                                next.add(
-                                  group.movieId
-                                );
+                              next.add(group.movieId);
 
-                                return next;
-                              }
-                            )
+                              return next;
+                            })
                           }
                         />
                       ) : (
                         <div
                           className={`flex h-full w-full items-center justify-center ${
-                            isDark
-                              ? "text-slate-700"
-                              : "text-slate-300"
+                            isDark ? "text-slate-700" : "text-slate-300"
                           }`}
                         >
                           <Film className="h-5 w-5" />
@@ -613,8 +566,8 @@ export default function CustomerCinemaDetailPage() {
                       <h3
                         className={`text-lg font-black transition ${
                           isDark
-                            ? "text-white group-hover:text-red-400"
-                            : "text-slate-950 group-hover:text-red-500"
+                            ? "text-white group-hover:text-amber-400"
+                            : "text-slate-950 group-hover:text-amber-600"
                         }`}
                       >
                         {group.movieTitle}
@@ -622,10 +575,8 @@ export default function CustomerCinemaDetailPage() {
 
                       {group.movieDurationMinutes && (
                         <span
-                          className={`font-mono text-[11px] ${
-                            isDark
-                              ? "text-slate-500"
-                              : "text-slate-400"
+                          className={`font-mono text-[11px] font-bold ${
+                            isDark ? "text-slate-500" : "text-slate-400"
                           }`}
                         >
                           {group.movieDurationMinutes}
@@ -638,38 +589,33 @@ export default function CustomerCinemaDetailPage() {
                   {/* Showtime Cards */}
                   <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
                     {group.slots.map((s) => {
-                      const { time, date } =
-                        formatShowDateTime(
-                          s.startTime,
-                          language
-                        );
+                      const { time, date } = formatShowDateTime(
+                        s.startTime,
+                        language,
+                      );
 
                       return (
                         <div
                           key={s.id}
-                          className="group relative flex overflow-hidden rounded-2xl shadow-xl"
+                          className="group relative flex overflow-hidden rounded-2xl shadow-xl transition-all duration-300 hover:-translate-y-1"
                         >
                           {/* Main Ticket */}
                           <div
                             className={`flex-1 space-y-3 rounded-l-2xl border p-5 transition ${
                               isDark
-                                ? "border-slate-800 bg-gradient-to-br from-slate-900 to-slate-900/70 group-hover:border-red-500/50"
-                                : "border-slate-200 bg-white group-hover:border-red-300"
+                                ? "border-white/10 bg-slate-900/60 backdrop-blur-md group-hover:border-amber-500/40"
+                                : "border-slate-200 bg-white group-hover:border-amber-500/40 shadow-sm"
                             }`}
                           >
                             <div className="flex items-center justify-between gap-2">
                               <span
                                 className={`flex items-center gap-1.5 text-xs font-bold ${
-                                  isDark
-                                    ? "text-white"
-                                    : "text-slate-900"
+                                  isDark ? "text-white" : "text-slate-900"
                                 }`}
                               >
                                 <Tv
                                   className={`h-3.5 w-3.5 ${
-                                    isDark
-                                      ? "text-slate-400"
-                                      : "text-slate-500"
+                                    isDark ? "text-amber-400" : "text-amber-500"
                                   }`}
                                 />
 
@@ -677,16 +623,13 @@ export default function CustomerCinemaDetailPage() {
                               </span>
 
                               <span
-                                className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${
+                                className={`rounded-full border px-2.5 py-0.5 text-[10px] font-black ${
                                   isDark
-                                    ? "border-red-500/20 bg-red-600/10 text-red-400"
-                                    : "border-red-200 bg-red-50 text-red-500"
+                                    ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                                    : "border-amber-200 bg-amber-50 text-amber-700"
                                 }`}
                               >
-                                {s.hallType?.replace(
-                                  "_",
-                                  " "
-                                )}
+                                {s.hallType?.replace("_", " ")}
                               </span>
                             </div>
 
@@ -694,18 +637,16 @@ export default function CustomerCinemaDetailPage() {
                               <div
                                 className={`font-mono text-3xl font-black leading-none transition ${
                                   isDark
-                                    ? "text-white group-hover:text-red-400"
-                                    : "text-slate-950 group-hover:text-red-500"
+                                    ? "text-white group-hover:text-amber-400"
+                                    : "text-slate-950 group-hover:text-amber-600"
                                 }`}
                               >
                                 {time}
                               </div>
 
                               <div
-                                className={`mt-1 text-[11px] font-semibold uppercase tracking-wide ${
-                                  isDark
-                                    ? "text-slate-500"
-                                    : "text-slate-400"
+                                className={`mt-1 text-[11px] font-bold uppercase tracking-wide ${
+                                  isDark ? "text-slate-500" : "text-slate-400"
                                 }`}
                               >
                                 {date}
@@ -717,25 +658,19 @@ export default function CustomerCinemaDetailPage() {
                           <div className="relative w-0">
                             <div
                               className={`absolute -left-2.5 -top-2.5 h-5 w-5 rounded-full ${
-                                isDark
-                                  ? "bg-[#0B0C10]"
-                                  : "bg-slate-50"
+                                isDark ? "bg-[#0B0C10]" : "bg-slate-50"
                               }`}
                             />
 
                             <div
                               className={`absolute -bottom-2.5 -left-2.5 h-5 w-5 rounded-full ${
-                                isDark
-                                  ? "bg-[#0B0C10]"
-                                  : "bg-slate-50"
+                                isDark ? "bg-[#0B0C10]" : "bg-slate-50"
                               }`}
                             />
 
                             <div
                               className={`absolute bottom-1 left-0 top-1 border-l-2 border-dashed ${
-                                isDark
-                                  ? "border-slate-700"
-                                  : "border-slate-300"
+                                isDark ? "border-white/20" : "border-slate-300"
                               }`}
                             />
                           </div>
@@ -744,18 +679,16 @@ export default function CustomerCinemaDetailPage() {
                           <div
                             className={`flex w-[104px] shrink-0 flex-col items-center justify-center gap-2.5 rounded-r-2xl border border-l-0 p-3 transition ${
                               isDark
-                                ? "border-slate-800 bg-slate-950 group-hover:border-red-500/50"
-                                : "border-slate-200 bg-slate-100 group-hover:border-red-300"
+                                ? "border-white/10 bg-slate-950 group-hover:border-amber-500/40"
+                                : "border-slate-200 bg-slate-100 group-hover:border-amber-500/40"
                             }`}
                           >
                             <button
                               type="button"
                               onClick={() =>
-                                router.push(
-                                  `/customer/booking/${s.id}`
-                                )
+                                router.push(`/customer/booking/${s.id}`)
                               }
-                              className="w-full cursor-pointer rounded-lg bg-gradient-to-r from-red-600 to-rose-600 py-2 text-[10px] font-bold text-white shadow-md shadow-red-600/30 transition hover:from-red-500 hover:to-rose-500"
+                              className="w-full cursor-pointer rounded-xl bg-amber-500 hover:bg-amber-400 py-2.5 text-[11px] font-black text-slate-950 shadow-md shadow-amber-500/20 transition"
                             >
                               {text.seats}
                             </button>
@@ -773,35 +706,27 @@ export default function CustomerCinemaDetailPage() {
           <div
             className={`flex min-h-[30vh] flex-col items-center justify-center space-y-2 rounded-3xl border p-8 text-center text-sm ${
               isDark
-                ? "border-slate-800 bg-slate-900/30 text-slate-400"
+                ? "border-white/10 bg-white/[0.02] text-slate-400"
                 : "border-slate-200 bg-white text-slate-500"
             }`}
           >
             <Film
               className={`mb-1 h-10 w-10 ${
-                isDark
-                  ? "text-slate-600"
-                  : "text-slate-300"
+                isDark ? "text-slate-600" : "text-slate-300"
               }`}
             />
 
             <p
               className={`font-semibold ${
-                isDark
-                  ? "text-slate-300"
-                  : "text-slate-700"
+                isDark ? "text-slate-300" : "text-slate-700"
               }`}
             >
-              {selectedDate
-                ? text.noShowtimesDate
-                : text.noShowtimes}
+              {selectedDate ? text.noShowtimesDate : text.noShowtimes}
             </p>
 
             <p
               className={`text-xs ${
-                isDark
-                  ? "text-slate-500"
-                  : "text-slate-400"
+                isDark ? "text-slate-500" : "text-slate-400"
               }`}
             >
               {text.checkBack}

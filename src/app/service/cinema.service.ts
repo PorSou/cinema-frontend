@@ -9,18 +9,18 @@ import { HallService } from "./hall.service";
 
 export const CinemaService = {
   getAllCinemas: async (page = 0, size = 50): Promise<CinemaResponse[]> => {
-    const res = await api.get<ApiResponse<PageResponse<CinemaResponse> | CinemaResponse[]>>(
-      `/cinemas?page=${page}&size=${size}`
-    );
+    const res = await api.get<
+      ApiResponse<PageResponse<CinemaResponse> | CinemaResponse[]>
+    >(`/cinemas?page=${page}&size=${size}`);
     const data = res.data?.body?.data;
     if (data && "content" in data) return data.content;
     return Array.isArray(data) ? data : [];
   },
 
   getTrashCinemas: async (page = 0, size = 50): Promise<CinemaResponse[]> => {
-    const res = await api.get<ApiResponse<PageResponse<CinemaResponse> | CinemaResponse[]>>(
-      `/cinemas/trash?page=${page}&size=${size}`
-    );
+    const res = await api.get<
+      ApiResponse<PageResponse<CinemaResponse> | CinemaResponse[]>
+    >(`/cinemas/trash?page=${page}&size=${size}`);
     const data = res.data?.body?.data;
     if (data && "content" in data) return data.content;
     return Array.isArray(data) ? data : [];
@@ -31,13 +31,54 @@ export const CinemaService = {
     return res.data?.body?.data;
   },
 
-  createCinema: async (data: CinemaRequest): Promise<CinemaResponse> => {
-    const res = await api.post<ApiResponse<CinemaResponse>>("/cinemas", data);
+  createCinema: async (
+    data: CinemaRequest,
+    file?: File,
+  ): Promise<CinemaResponse> => {
+    const formData = new FormData();
+    formData.append(
+      "request",
+      new Blob([JSON.stringify(data)], { type: "application/json" }),
+    );
+    if (file) {
+      formData.append("file", file);
+    }
+
+    const res = await api.post<ApiResponse<CinemaResponse>>(
+      "/cinemas",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
     return res.data?.body?.data;
   },
 
-  updateCinema: async (id: number, data: CinemaRequest): Promise<CinemaResponse> => {
-    const res = await api.put<ApiResponse<CinemaResponse>>(`/cinemas/${id}`, data);
+  updateCinema: async (
+    id: number,
+    data: CinemaRequest,
+    file?: File,
+  ): Promise<CinemaResponse> => {
+    const formData = new FormData();
+    formData.append(
+      "request",
+      new Blob([JSON.stringify(data)], { type: "application/json" }),
+    );
+    if (file) {
+      formData.append("file", file);
+    }
+
+    const res = await api.put<ApiResponse<CinemaResponse>>(
+      `/cinemas/${id}`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
     return res.data?.body?.data;
   },
 
@@ -46,7 +87,9 @@ export const CinemaService = {
   },
 
   restoreCinema: async (id: number): Promise<CinemaResponse> => {
-    const res = await api.put<ApiResponse<CinemaResponse>>(`/cinemas/${id}/restore`);
+    const res = await api.put<ApiResponse<CinemaResponse>>(
+      `/cinemas/${id}/restore`,
+    );
     return res.data?.body?.data;
   },
 

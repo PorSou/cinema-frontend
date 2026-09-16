@@ -1,22 +1,14 @@
 "use client";
 
-import {
-  Loader2,
-  LogOut,
-  Trash2,
-  RotateCcw,
-} from "lucide-react";
+import { Loader2, LogOut, Trash2, RotateCcw } from "lucide-react";
 
 import { useLanguage } from "@/app/context/LanguageContext";
+import { useSettings } from "@/app/context/SettingsContext"; // <--- 1. Import useSettings
 
 export interface ConfirmDialogProps {
   isOpen: boolean;
 
-  type:
-    | "SOFT_DELETE"
-    | "HARD_DELETE"
-    | "RESTORE"
-    | "LOGOUT";
+  type: "SOFT_DELETE" | "HARD_DELETE" | "RESTORE" | "LOGOUT";
 
   title?: string;
 
@@ -39,6 +31,8 @@ export default function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const { t } = useLanguage();
+  const { theme } = useSettings(); // <--- 2. Get theme context
+  const isLight = theme === "light";
 
   if (!isOpen) {
     return null;
@@ -51,14 +45,14 @@ export default function ConfirmDialog({
     HARD_DELETE: {
       defaultTitle: t("confirmDialog.hardDelete.title"),
 
-      btnClass:
-        "bg-red-600 hover:bg-red-500 shadow-lg shadow-red-600/20",
+      btnClass: "bg-red-600 hover:bg-red-500 shadow-lg shadow-red-600/20",
 
       btnText: t("confirmDialog.hardDelete.button"),
 
-      message: t(
-        "confirmDialog.hardDelete.message"
-      ).replace("{name}", targetName),
+      message: t("confirmDialog.hardDelete.message").replace(
+        "{name}",
+        targetName,
+      ),
 
       icon: Trash2,
 
@@ -77,9 +71,7 @@ export default function ConfirmDialog({
 
       btnText: t("confirmDialog.restore.button"),
 
-      message: t(
-        "confirmDialog.restore.message"
-      ).replace("{name}", targetName),
+      message: t("confirmDialog.restore.message").replace("{name}", targetName),
 
       icon: RotateCcw,
 
@@ -93,14 +85,14 @@ export default function ConfirmDialog({
     SOFT_DELETE: {
       defaultTitle: t("confirmDialog.softDelete.title"),
 
-      btnClass:
-        "bg-red-600 hover:bg-red-500 shadow-lg shadow-red-600/20",
+      btnClass: "bg-red-600 hover:bg-red-500 shadow-lg shadow-red-600/20",
 
       btnText: t("confirmDialog.softDelete.button"),
 
-      message: t(
-        "confirmDialog.softDelete.message"
-      ).replace("{name}", targetName),
+      message: t("confirmDialog.softDelete.message").replace(
+        "{name}",
+        targetName,
+      ),
 
       icon: Trash2,
 
@@ -114,14 +106,11 @@ export default function ConfirmDialog({
     LOGOUT: {
       defaultTitle: t("confirmDialog.logout.title"),
 
-      btnClass:
-        "bg-red-600 hover:bg-red-500 shadow-lg shadow-red-600/20",
+      btnClass: "bg-red-600 hover:bg-red-500 shadow-lg shadow-red-600/20",
 
       btnText: t("confirmDialog.logout.button"),
 
-      message: t(
-        "confirmDialog.logout.message"
-      ).replace("{name}", targetName),
+      message: t("confirmDialog.logout.message").replace("{name}", targetName),
 
       icon: LogOut,
 
@@ -132,42 +121,32 @@ export default function ConfirmDialog({
 
   const Icon = config.icon;
 
+  /**
+   * =========================================================
+   * DYNAMIC THEME CLASSES
+   * =========================================================
+   */
+  const overlayClass = isLight
+    ? "bg-slate-950/30 backdrop-blur-sm"
+    : "bg-black/70 backdrop-blur-sm";
+
+  const dialogBoxClass = isLight
+    ? "border-slate-200 bg-white text-slate-900 shadow-2xl shadow-slate-300/50"
+    : "border-slate-800 bg-slate-900 text-slate-100 shadow-2xl shadow-black/50";
+
+  const cancelBtnClass = isLight
+    ? "border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900"
+    : "border-slate-700/80 bg-slate-800/40 text-slate-300 hover:bg-slate-800 hover:text-white";
+
   return (
     <div
-      className="
-        fixed
-        inset-0
-        z-[100]
-        flex
-        items-center
-        justify-center
-        bg-slate-950/30
-        p-4
-        backdrop-blur-sm
-        dark:bg-black/70
-      "
+      className={`fixed inset-0 z-[100] flex items-center justify-center p-4 transition-colors duration-300 ${overlayClass}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-dialog-title"
     >
       <div
-        className="
-          w-full
-          max-w-md
-          rounded-2xl
-          border
-          border-slate-200
-          bg-white
-          p-6
-          text-slate-900
-          shadow-2xl
-
-          dark:border-slate-800
-          dark:bg-slate-900
-          dark:text-slate-100
-
-          sm:p-7
-        "
+        className={`w-full max-w-md rounded-2xl border p-6 sm:p-7 animate-in zoom-in-95 transition-colors duration-300 ${dialogBoxClass}`}
       >
         {/* ============================================
             ICON
@@ -195,16 +174,13 @@ export default function ConfirmDialog({
 
         <h3
           id="confirm-dialog-title"
-          className="
+          className={`
             text-base
             font-bold
             tracking-tight
-            text-slate-900
-
-            dark:text-white
-
             sm:text-lg
-          "
+            ${isLight ? "text-slate-900" : "text-white"}
+          `}
         >
           {title || config.defaultTitle}
         </h3>
@@ -214,14 +190,12 @@ export default function ConfirmDialog({
         ============================================ */}
 
         <p
-          className="
+          className={`
             mt-3
             text-sm
             leading-relaxed
-            text-slate-600
-
-            dark:text-slate-300
-          "
+            ${isLight ? "text-slate-600" : "text-slate-300"}
+          `}
         >
           {config.message}
         </p>
@@ -237,31 +211,20 @@ export default function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={loading}
-            className="
+            className={`
               cursor-pointer
               rounded-xl
               border
-              border-slate-200
-              bg-slate-100
               px-4
               py-2.5
               text-xs
               font-semibold
-              text-slate-700
               transition
-
-              hover:bg-slate-200
-              hover:text-slate-900
 
               disabled:cursor-not-allowed
               disabled:opacity-50
-
-              dark:border-slate-700/80
-              dark:bg-slate-800/40
-              dark:text-slate-300
-              dark:hover:bg-slate-800
-              dark:hover:text-white
-            "
+              ${cancelBtnClass}
+            `}
           >
             {t("confirmDialog.cancel")}
           </button>
@@ -291,9 +254,7 @@ export default function ConfirmDialog({
               ${config.btnClass}
             `}
           >
-            {loading && (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            )}
+            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
 
             <span>{config.btnText}</span>
           </button>

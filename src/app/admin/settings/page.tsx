@@ -7,7 +7,6 @@ import {
   Ticket,
   Clapperboard,
   CreditCard,
-  Bell,
   ShieldCheck,
   Settings2,
   Save,
@@ -15,101 +14,75 @@ import {
   Moon,
   Sun,
   Monitor,
+  Image as ImageIcon,
+  Upload,
+  X,
+  Loader2,
 } from "lucide-react";
 import Toast from "@/app/components/Toast";
+import { useSettings, Theme, Language } from "@/app/context/SettingsContext";
+import api from "@/app/lib/api";
+import { LOGO_UPDATE_EVENT } from "@/app/hooks/useSiteLogo";
 
-type Language = "en" | "km" | "zh";
-type Theme = "dark" | "light" | "system";
-
-interface SystemSettings {
-  theme: Theme;
-  language: Language;
-
+interface SystemSettingsConfig {
   onlineBooking: boolean;
   allowCancellation: boolean;
   seatHoldMinutes: number;
   maxTicketsPerBooking: number;
   cancellationDeadlineHours: number;
-
   showtimeGapMinutes: number;
   allowOverlappingShowtimes: boolean;
   allowLateBooking: boolean;
-
   currency: string;
   cashPayment: boolean;
   cardPayment: boolean;
   onlinePayment: boolean;
   qrPayment: boolean;
-
   bookingConfirmation: boolean;
   paymentConfirmation: boolean;
   showtimeReminder: boolean;
   cancellationNotification: boolean;
-
   sessionTimeoutMinutes: number;
   loginNotification: boolean;
-
   maintenanceMode: boolean;
+  siteLogoUrl: string;
 }
 
-const DEFAULT_SETTINGS: SystemSettings = {
-  theme: "dark",
-  language: "en",
-
+const DEFAULT_CONFIG: SystemSettingsConfig = {
   onlineBooking: true,
   allowCancellation: true,
   seatHoldMinutes: 10,
   maxTicketsPerBooking: 10,
   cancellationDeadlineHours: 2,
-
   showtimeGapMinutes: 20,
   allowOverlappingShowtimes: false,
   allowLateBooking: false,
-
   currency: "USD",
   cashPayment: true,
   cardPayment: true,
   onlinePayment: true,
   qrPayment: true,
-
   bookingConfirmation: true,
   paymentConfirmation: true,
   showtimeReminder: true,
   cancellationNotification: true,
-
   sessionTimeoutMinutes: 60,
   loginNotification: true,
-
   maintenanceMode: false,
-};
-
-const Toggle = ({
-  checked,
-  onChange,
-}: {
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) => {
-  return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className={`relative h-6 w-11 rounded-full transition ${
-        checked ? "bg-red-600" : "bg-slate-700"
-      }`}
-    >
-      <span
-        className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${
-          checked ? "left-6" : "left-1"
-        }`}
-      />
-    </button>
-  );
+  siteLogoUrl: "/logo2.png",
 };
 
 export default function AdminSettingsPage() {
-  const [settings, setSettings] =
-    useState<SystemSettings>(DEFAULT_SETTINGS);
+  const { theme, setTheme, language, setLanguage } = useSettings();
+  const isLight = theme === "light";
+
+  const [config, setConfig] = useState<SystemSettingsConfig>(DEFAULT_CONFIG);
+
+  // Modal Dialog States for Logo Upload
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const [toast, setToast] = useState<{
     message: string | null;
@@ -120,577 +93,602 @@ export default function AdminSettingsPage() {
   });
 
   useEffect(() => {
-    const saved = localStorage.getItem("cinemax-system-settings");
-
+    // 1. Load local config defaults first
+    const saved = localStorage.getItem("cinemax-system-config");
     if (saved) {
       try {
-        setSettings({
-          ...DEFAULT_SETTINGS,
-          ...JSON.parse(saved),
-        });
+        setConfig((prev) => ({ ...prev, ...JSON.parse(saved) }));
       } catch {
-        setSettings(DEFAULT_SETTINGS);
+        // Fallback silently
       }
     }
+
+    // 2. Fetch live settings from backend database table so it never loses state on refresh
+    api
+      .get("/settings/public")
+      .then((res) => {
+        const data = res.data?.body?.data || res.data?.data || res.data;
+        if (data?.SITE_LOGO_URL) {
+          setConfig((prev) => ({ ...prev, siteLogoUrl: data.SITE_LOGO_URL }));
+        }
+      })
+      .catch(() => {
+        // Silent fallback
+      });
   }, []);
 
-  const updateSetting = <K extends keyof SystemSettings>(
+  const updateConfig = <K extends keyof SystemSettingsConfig>(
     key: K,
-    value: SystemSettings[K]
+    value: SystemSettingsConfig[K],
   ) => {
-    setSettings((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setConfig((prev) => ({ ...prev, [key]: value }));
   };
 
-  const saveSettings = () => {
-    localStorage.setItem(
-      "cinemax-system-settings",
-      JSON.stringify(settings)
-    );
+  /* -----------------------------------------------------------
+     HANDLE FILE SELECTION & CLOUDINARY UPLOAD DIALOG
+  ----------------------------------------------------------- */
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      setSelectedFile(file);
+      setPreviewImage(URL.createObjectURL(file));
+    }
+  };
 
-    // Save language globally
-    localStorage.setItem("cinemax-language", settings.language);
+  const handleUploadSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile) return;
 
+    try {
+      setUploading(true);
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+
+      // 1. Send to your backend Cloudinary upload endpoint
+      const res = await api.post("/cloudinary/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const uploadedUrl =
+        res.data?.body?.data || res.data?.data || res.data?.url || res.data;
+
+      if (uploadedUrl) {
+        // 2. Update local state
+        setConfig((prev) => ({ ...prev, siteLogoUrl: uploadedUrl }));
+
+        // 🌟 3. Automatically save it to the database table immediately!
+        await api.put("/settings/update", {
+          SITE_LOGO_URL: uploadedUrl,
+        });
+
+        // 4. Broadcast the change across the app instantly
+        window.dispatchEvent(
+          new CustomEvent(LOGO_UPDATE_EVENT, { detail: uploadedUrl }),
+        );
+
+        setToast({
+          message: "Logo uploaded and saved successfully!",
+          type: "success",
+        });
+        setIsUploadModalOpen(false);
+        setSelectedFile(null);
+        setPreviewImage(null);
+      } else {
+        throw new Error("Upload failed");
+      }
+    } catch (err) {
+      setToast({ message: "Failed to upload logo image.", type: "error" });
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      localStorage.setItem("cinemax-system-config", JSON.stringify(config));
+
+      // Save logo URL to backend database table
+      await api.put("/settings/update", {
+        SITE_LOGO_URL: config.siteLogoUrl,
+      });
+
+      // Broadcast the logo change event instantly to all components and update cache
+      window.dispatchEvent(
+        new CustomEvent(LOGO_UPDATE_EVENT, { detail: config.siteLogoUrl }),
+      );
+
+      setToast({
+        message: "Workspace preferences and brand logo updated successfully.",
+        type: "success",
+      });
+    } catch (err) {
+      setToast({
+        message: "Failed to deploy configurations to server.",
+        type: "error",
+      });
+    }
+  };
+
+  const handleReset = () => {
+    setConfig(DEFAULT_CONFIG);
+    setTheme("dark");
+    setLanguage("en");
+    localStorage.removeItem("cinemax-system-config");
+    localStorage.removeItem("cinemax-cached-logo");
     setToast({
-      message: "System settings saved successfully.",
+      message: "Settings restored to system defaults.",
       type: "success",
     });
   };
 
-  const resetSettings = () => {
-    setSettings(DEFAULT_SETTINGS);
+  const pageClass = isLight
+    ? "bg-slate-50 text-slate-900"
+    : "bg-slate-950 text-slate-100";
 
-    localStorage.setItem(
-      "cinemax-system-settings",
-      JSON.stringify(DEFAULT_SETTINGS)
-    );
+  const cardClass = isLight
+    ? "border-slate-300 bg-white shadow-xl shadow-slate-200 ring-1 ring-slate-200"
+    : "border-slate-800 bg-slate-900/60 shadow-2xl backdrop-blur-md";
 
-    setToast({
-      message: "Settings have been reset to default.",
-      type: "success",
-    });
-  };
+  const subCardClass = isLight
+    ? "border-slate-300 bg-slate-100/70 text-slate-800 shadow-sm"
+    : "border-slate-800 bg-slate-950/60 text-slate-200";
+
+  const inputClass = isLight
+    ? "border-slate-300 bg-white text-slate-900 placeholder-slate-400 focus:border-red-500 shadow-sm font-bold"
+    : "border-slate-800 bg-slate-900/90 text-white placeholder-slate-500 focus:border-red-500";
+
+  const textPrimary = isLight
+    ? "text-slate-900 font-black"
+    : "text-white font-black";
+  const textSecondary = isLight
+    ? "text-slate-700 font-bold"
+    : "text-slate-400 font-medium";
+  const borderCol = isLight ? "border-slate-300" : "border-slate-800";
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 pb-24 text-slate-100">
+    <div
+      className={`min-h-screen py-6 px-4 sm:px-8 lg:px-10 w-full space-y-8 transition-colors duration-300 pb-28 ${pageClass}`}
+    >
+      <style jsx global>{`
+        ::-webkit-scrollbar {
+          display: none;
+        }
+        * {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
+
       <Toast
         message={toast.message}
         type={toast.type}
-        onClose={() =>
-          setToast({
-            message: null,
-            type: "success",
-          })
-        }
+        onClose={() => setToast({ message: null, type: "success" })}
       />
 
-      {/* Header */}
-      <div className="border-b border-slate-800 pb-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-red-600/10 text-red-500">
+      {/* Header Toolbar */}
+      <div
+        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b ${borderCol} pb-6`}
+      >
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-red-600 to-rose-500 text-white shadow-lg shadow-red-600/30 shrink-0">
             <Settings2 className="h-6 w-6" />
           </div>
-
           <div>
-            <h1 className="text-2xl font-black text-white">
-              System Settings
+            <h1 className={`text-2xl font-black tracking-tight ${textPrimary}`}>
+              System Configuration
             </h1>
-
-            <p className="mt-1 text-xs text-slate-400">
-              Manage CINEMAX workspace preferences and system behavior.
+            <p className={`text-xs ${textSecondary} mt-0.5`}>
+              Manage global platform rules, gateways, branding logo, and UI
+              preferences.
             </p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleReset}
+            className={`flex items-center gap-1.5 rounded-xl border px-4 py-2.5 text-xs font-bold transition cursor-pointer shadow-sm ${
+              isLight
+                ? "border-slate-300 bg-white text-slate-800 hover:bg-slate-100 font-bold"
+                : "border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800"
+            }`}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span>Reset Defaults</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleSave}
+            className="flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-red-600/25 hover:from-red-500 hover:to-rose-500 transition cursor-pointer"
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span>Save Configuration</span>
+          </button>
         </div>
       </div>
 
-      {/* Appearance */}
-      <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl">
-        <div className="mb-6 flex items-center gap-3 border-b border-slate-800 pb-4">
-          <Palette className="h-5 w-5 text-purple-400" />
-
-          <div>
-            <h2 className="font-black text-white">Appearance</h2>
-            <p className="text-xs text-slate-400">
-              Customize the CINEMAX workspace.
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-6">
-          {/* Theme */}
-          <div>
-            <label className="mb-3 block text-sm font-bold text-slate-200">
-              Theme
-            </label>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              {[
-                {
-                  value: "dark" as Theme,
-                  label: "Dark",
-                  icon: Moon,
-                },
-                {
-                  value: "light" as Theme,
-                  label: "Light",
-                  icon: Sun,
-                },
-                {
-                  value: "system" as Theme,
-                  label: "System",
-                  icon: Monitor,
-                },
-              ].map((item) => {
-                const Icon = item.icon;
-                const active = settings.theme === item.value;
-
-                return (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() =>
-                      updateSetting("theme", item.value)
-                    }
-                    className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition ${
-                      active
-                        ? "border-red-500 bg-red-600/10 text-white"
-                        : "border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700"
-                    }`}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span className="text-sm font-bold">
-                      {item.label}
-                    </span>
-                  </button>
-                );
-              })}
+      <div className="grid grid-cols-1 gap-6">
+        {/* Brand & Logo Customization Section */}
+        <section
+          className={`rounded-3xl border ${cardClass} p-6 sm:p-7 space-y-5`}
+        >
+          <div className={`flex items-center gap-3 border-b ${borderCol} pb-4`}>
+            <div className="p-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400">
+              <ImageIcon className="h-5 w-5" />
+            </div>
+            <div>
+              <h2
+                className={`text-sm font-black uppercase tracking-wider ${textPrimary}`}
+              >
+                Brand Identity & Logo
+              </h2>
+              <p className={`text-xs ${textSecondary}`}>
+                Update the platform brand logo URL displayed across Admin and
+                Customer navbars.
+              </p>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* Language */}
-      <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl">
-        <div className="mb-6 flex items-center gap-3 border-b border-slate-800 pb-4">
-          <Globe2 className="h-5 w-5 text-blue-400" />
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-6 items-center">
+            <div className="space-y-3">
+              <label
+                className={`block text-xs font-black uppercase tracking-wider ${textSecondary}`}
+              >
+                Logo Image URL or File Upload
+              </label>
 
-          <div>
-            <h2 className="font-black text-white">
-              Language & Localization
-            </h2>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={config.siteLogoUrl}
+                  onChange={(e) => updateConfig("siteLogoUrl", e.target.value)}
+                  placeholder="/logo2.png or Cloudinary URL"
+                  className={`w-full rounded-2xl border px-4 py-3 text-xs font-bold outline-none ${inputClass}`}
+                />
 
-            <p className="text-xs text-slate-400">
-              Choose the default language for CINEMAX.
-            </p>
-          </div>
-        </div>
-
-        <div>
-          <label className="mb-2 block text-sm font-bold text-slate-300">
-            Default Language
-          </label>
-
-          <select
-            value={settings.language}
-            onChange={(e) =>
-              updateSetting(
-                "language",
-                e.target.value as Language
-              )
-            }
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm font-semibold text-white outline-none focus:border-red-500 sm:max-w-md"
-          >
-            <option value="en">🇬🇧 English</option>
-            <option value="km">🇰🇭 ខ្មែរ (Khmer)</option>
-            <option value="zh">🇨🇳 中文 (Chinese)</option>
-          </select>
-        </div>
-
-        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {[
-            ["en", "🇬🇧", "English"],
-            ["km", "🇰🇭", "ខ្មែរ"],
-            ["zh", "🇨🇳", "中文"],
-          ].map(([value, flag, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() =>
-                updateSetting("language", value as Language)
-              }
-              className={`rounded-2xl border p-4 transition ${
-                settings.language === value
-                  ? "border-red-500 bg-red-600/10"
-                  : "border-slate-800 bg-slate-950/50"
-              }`}
-            >
-              <div className="text-2xl">{flag}</div>
-              <div className="mt-2 text-sm font-bold text-white">
-                {label}
+                {/* Button to Open Upload Dialog Modal */}
+                <button
+                  type="button"
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="flex items-center gap-2 rounded-2xl bg-amber-500 px-4 py-3 text-xs font-black text-slate-950 shadow-md hover:bg-amber-400 transition cursor-pointer shrink-0"
+                >
+                  <Upload className="h-4 w-4" />
+                  <span>Upload Logo</span>
+                </button>
               </div>
-            </button>
-          ))}
-        </div>
-      </section>
 
-      {/* Booking */}
-      <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl">
-        <div className="mb-6 flex items-center gap-3 border-b border-slate-800 pb-4">
-          <Ticket className="h-5 w-5 text-red-400" />
+              <p className="text-[11px] text-slate-400">
+                You can type a direct path/URL or click Upload Logo to choose
+                from your device.
+              </p>
+            </div>
 
-          <div>
-            <h2 className="font-black text-white">Booking</h2>
-            <p className="text-xs text-slate-400">
-              Configure cinema ticket booking rules.
-            </p>
+            {/* Live Logo Preview Box */}
+            <div className="flex flex-col items-center justify-center p-4 rounded-2xl border border-slate-700/50 bg-slate-950/40 w-36 h-28 shrink-auto mx-auto">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-slate-500 mb-2">
+                Live Preview
+              </span>
+              <div className="relative h-12 w-24 flex items-center justify-center">
+                <img
+                  src={config.siteLogoUrl || "/logo2.png"}
+                  alt="Logo Preview"
+                  className="max-h-full max-w-full object-contain"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "/logo2.png";
+                  }}
+                />
+              </div>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <div className="space-y-5">
-          <SettingToggle
-            title="Online Booking"
-            description="Allow customers to purchase tickets online."
-            checked={settings.onlineBooking}
-            onChange={(v) => updateSetting("onlineBooking", v)}
-          />
-
-          <SettingToggle
-            title="Allow Cancellation"
-            description="Allow customers to cancel their bookings."
-            checked={settings.allowCancellation}
-            onChange={(v) =>
-              updateSetting("allowCancellation", v)
-            }
-          />
-
-          <SettingNumber
-            label="Seat Hold Duration"
-            value={settings.seatHoldMinutes}
-            suffix="minutes"
-            onChange={(v) =>
-              updateSetting("seatHoldMinutes", v)
-            }
-          />
-
-          <SettingNumber
-            label="Maximum Tickets Per Booking"
-            value={settings.maxTicketsPerBooking}
-            suffix="tickets"
-            onChange={(v) =>
-              updateSetting("maxTicketsPerBooking", v)
-            }
-          />
-
-          <SettingNumber
-            label="Cancellation Deadline"
-            value={settings.cancellationDeadlineHours}
-            suffix="hours before showtime"
-            onChange={(v) =>
-              updateSetting(
-                "cancellationDeadlineHours",
-                v
-              )
-            }
-          />
-        </div>
-      </section>
-
-      {/* Showtime */}
-      <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl">
-        <div className="mb-6 flex items-center gap-3 border-b border-slate-800 pb-4">
-          <Clapperboard className="h-5 w-5 text-amber-400" />
-
-          <div>
-            <h2 className="font-black text-white">Showtime</h2>
-            <p className="text-xs text-slate-400">
-              Configure movie scheduling behavior.
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-5">
-          <SettingNumber
-            label="Minimum Gap Between Shows"
-            value={settings.showtimeGapMinutes}
-            suffix="minutes"
-            onChange={(v) =>
-              updateSetting("showtimeGapMinutes", v)
-            }
-          />
-
-          <SettingToggle
-            title="Allow Overlapping Showtimes"
-            description="Allow the same hall to have overlapping shows."
-            checked={settings.allowOverlappingShowtimes}
-            onChange={(v) =>
-              updateSetting(
-                "allowOverlappingShowtimes",
-                v
-              )
-            }
-          />
-
-          <SettingToggle
-            title="Allow Late Booking"
-            description="Allow customers to book after the movie has started."
-            checked={settings.allowLateBooking}
-            onChange={(v) =>
-              updateSetting("allowLateBooking", v)
-            }
-          />
-        </div>
-      </section>
-
-      {/* Payment */}
-      <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl">
-        <div className="mb-6 flex items-center gap-3 border-b border-slate-800 pb-4">
-          <CreditCard className="h-5 w-5 text-emerald-400" />
-
-          <div>
-            <h2 className="font-black text-white">Payment</h2>
-            <p className="text-xs text-slate-400">
-              Configure supported payment methods.
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-5">
-          <div>
-            <label className="mb-2 block text-sm font-bold text-slate-300">
-              Currency
-            </label>
-
-            <select
-              value={settings.currency}
-              onChange={(e) =>
-                updateSetting("currency", e.target.value)
-              }
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-white outline-none sm:max-w-md"
-            >
-              <option value="USD">USD - US Dollar</option>
-              <option value="KHR">KHR - Cambodian Riel</option>
-              <option value="CNY">CNY - Chinese Yuan</option>
-            </select>
-          </div>
-
-          <SettingToggle
-            title="Cash Payment"
-            description="Allow payment at the cinema counter."
-            checked={settings.cashPayment}
-            onChange={(v) =>
-              updateSetting("cashPayment", v)
-            }
-          />
-
-          <SettingToggle
-            title="Card Payment"
-            description="Allow debit and credit card payments."
-            checked={settings.cardPayment}
-            onChange={(v) =>
-              updateSetting("cardPayment", v)
-            }
-          />
-
-          <SettingToggle
-            title="Online Payment"
-            description="Allow online payment during checkout."
-            checked={settings.onlinePayment}
-            onChange={(v) =>
-              updateSetting("onlinePayment", v)
-            }
-          />
-
-          <SettingToggle
-            title="QR Payment"
-            description="Allow customers to pay using QR codes."
-            checked={settings.qrPayment}
-            onChange={(v) =>
-              updateSetting("qrPayment", v)
-            }
-          />
-        </div>
-      </section>
-
-      {/* Notifications */}
-      <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl">
-        <div className="mb-6 flex items-center gap-3 border-b border-slate-800 pb-4">
-          <Bell className="h-5 w-5 text-blue-400" />
-
-          <div>
-            <h2 className="font-black text-white">
-              Notifications
-            </h2>
-
-            <p className="text-xs text-slate-400">
-              Control customer notification behavior.
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-5">
-          <SettingToggle
-            title="Booking Confirmation"
-            description="Send confirmation after successful booking."
-            checked={settings.bookingConfirmation}
-            onChange={(v) =>
-              updateSetting("bookingConfirmation", v)
-            }
-          />
-
-          <SettingToggle
-            title="Payment Confirmation"
-            description="Send confirmation after successful payment."
-            checked={settings.paymentConfirmation}
-            onChange={(v) =>
-              updateSetting("paymentConfirmation", v)
-            }
-          />
-
-          <SettingToggle
-            title="Showtime Reminder"
-            description="Remind customers about upcoming shows."
-            checked={settings.showtimeReminder}
-            onChange={(v) =>
-              updateSetting("showtimeReminder", v)
-            }
-          />
-
-          <SettingToggle
-            title="Cancellation Notification"
-            description="Notify customers when a booking is cancelled."
-            checked={settings.cancellationNotification}
-            onChange={(v) =>
-              updateSetting(
-                "cancellationNotification",
-                v
-              )
-            }
-          />
-        </div>
-      </section>
-
-      {/* Security */}
-      <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl">
-        <div className="mb-6 flex items-center gap-3 border-b border-slate-800 pb-4">
-          <ShieldCheck className="h-5 w-5 text-green-400" />
-
-          <div>
-            <h2 className="font-black text-white">Security</h2>
-            <p className="text-xs text-slate-400">
-              Configure basic workspace security behavior.
-            </p>
-          </div>
-        </div>
-
-        <div className="space-y-5">
-          <SettingNumber
-            label="Session Timeout"
-            value={settings.sessionTimeoutMinutes}
-            suffix="minutes"
-            onChange={(v) =>
-              updateSetting(
-                "sessionTimeoutMinutes",
-                v
-              )
-            }
-          />
-
-          <SettingToggle
-            title="Login Notification"
-            description="Notify administrators about new logins."
-            checked={settings.loginNotification}
-            onChange={(v) =>
-              updateSetting("loginNotification", v)
-            }
-          />
-        </div>
-      </section>
-
-      {/* System */}
-      <section className="rounded-3xl border border-slate-800 bg-slate-900/70 p-6 shadow-xl">
-        <div className="mb-6 flex items-center gap-3 border-b border-slate-800 pb-4">
-          <Settings2 className="h-5 w-5 text-slate-300" />
-
-          <div>
-            <h2 className="font-black text-white">System</h2>
-            <p className="text-xs text-slate-400">
-              Global system configuration.
-            </p>
-          </div>
-        </div>
-
-        <SettingToggle
-          title="Maintenance Mode"
-          description="Temporarily disable customer-facing features."
-          checked={settings.maintenanceMode}
-          onChange={(v) =>
-            updateSetting("maintenanceMode", v)
-          }
-        />
-
-        <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
-          <p className="text-xs text-slate-500">
-            CINEMAX Workspace
-          </p>
-
-          <p className="mt-1 font-mono text-sm font-bold text-white">
-            Version 1.0.0
-          </p>
-        </div>
-      </section>
-
-      {/* Buttons */}
-      <div className="sticky bottom-4 z-20 flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/90 p-3 shadow-2xl backdrop-blur-xl sm:flex-row sm:justify-end">
-        <button
-          type="button"
-          onClick={resetSettings}
-          className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 px-5 py-3 text-sm font-bold text-slate-300 transition hover:bg-slate-800"
+        {/* Appearance Section */}
+        <section
+          className={`rounded-3xl border ${cardClass} p-6 sm:p-7 space-y-5`}
         >
-          <RotateCcw className="h-4 w-4" />
-          Reset
-        </button>
+          <div className={`flex items-center gap-3 border-b ${borderCol} pb-4`}>
+            <div className="p-2 rounded-xl bg-purple-500/15 border border-purple-500/30 text-purple-600 dark:text-purple-400">
+              <Palette className="h-5 w-5" />
+            </div>
+            <div>
+              <h2
+                className={`text-sm font-black uppercase tracking-wider ${textPrimary}`}
+              >
+                Visual Appearance
+              </h2>
+              <p className={`text-xs ${textSecondary}`}>
+                Select workspace theme preference.
+              </p>
+            </div>
+          </div>
 
-        <button
-          type="button"
-          onClick={saveSettings}
-          className="flex items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-red-600/20 transition hover:bg-red-500"
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {[
+              { value: "dark" as Theme, label: "Dark Workspace", icon: Moon },
+              { value: "light" as Theme, label: "Light Workspace", icon: Sun },
+              { value: "system" as Theme, label: "System Sync", icon: Monitor },
+            ].map((item) => {
+              const Icon = item.icon;
+              const active = theme === item.value;
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  onClick={() => setTheme(item.value)}
+                  className={`flex items-center gap-3 rounded-2xl border p-4 text-left transition cursor-pointer ${
+                    active
+                      ? "border-red-600 bg-red-600/15 text-red-600 dark:text-red-400 shadow-md shadow-red-600/20 font-black"
+                      : `${subCardClass} ${textSecondary} font-bold`
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" />
+                  <span className="text-xs">{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Language Section */}
+        <section
+          className={`rounded-3xl border ${cardClass} p-6 sm:p-7 space-y-5`}
         >
-          <Save className="h-4 w-4" />
-          Save Changes
-        </button>
+          <div className={`flex items-center gap-3 border-b ${borderCol} pb-4`}>
+            <div className="p-2 rounded-xl bg-blue-500/15 border border-blue-500/30 text-blue-600 dark:text-blue-400">
+              <Globe2 className="h-5 w-5" />
+            </div>
+            <div>
+              <h2
+                className={`text-sm font-black uppercase tracking-wider ${textPrimary}`}
+              >
+                Language & Localization
+              </h2>
+              <p className={`text-xs ${textSecondary}`}>
+                Choose administrative interface language.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {[
+              ["en", "🇬🇧", "English"],
+              ["km", "🇰🇭", "ខ្មែរ (Khmer)"],
+              ["zh", "🇨🇳", "中文 (Chinese)"],
+            ].map(([val, flag, label]) => {
+              const active = language === val;
+              return (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setLanguage(val as Language)}
+                  className={`flex items-center gap-3 rounded-2xl border p-4 transition cursor-pointer ${
+                    active
+                      ? "border-red-600 bg-red-600/15 text-red-600 dark:text-red-400 shadow-md shadow-red-600/20"
+                      : `${subCardClass} ${textSecondary}`
+                  }`}
+                >
+                  <span className="text-xl">{flag}</span>
+                  <span
+                    className={`text-xs font-black ${active ? textPrimary : textSecondary}`}
+                  >
+                    {label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Booking Rules Section */}
+        <section
+          className={`rounded-3xl border ${cardClass} p-6 sm:p-7 space-y-5`}
+        >
+          <div className={`flex items-center gap-3 border-b ${borderCol} pb-4`}>
+            <div className="p-2 rounded-xl bg-red-500/15 border border-red-500/30 text-red-600">
+              <Ticket className="h-5 w-5" />
+            </div>
+            <div>
+              <h2
+                className={`text-sm font-black uppercase tracking-wider ${textPrimary}`}
+              >
+                Booking Parameters
+              </h2>
+              <p className={`text-xs ${textSecondary}`}>
+                Manage ticket limits, hold timers, and cancellation policies.
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <SettingToggle
+              title="Online Booking Engine"
+              description="Allow external customers to reserve seats online."
+              checked={config.onlineBooking}
+              onChange={(v) => updateConfig("onlineBooking", v)}
+              subCardClass={subCardClass}
+              textPrimary={textPrimary}
+              textSecondary={textSecondary}
+            />
+            <SettingToggle
+              title="Allow Customer Cancellations"
+              description="Enable self-service booking cancellations."
+              checked={config.allowCancellation}
+              onChange={(v) => updateConfig("allowCancellation", v)}
+              subCardClass={subCardClass}
+              textPrimary={textPrimary}
+              textSecondary={textSecondary}
+            />
+            <SettingNumber
+              label="Temporary Seat Hold Timer"
+              value={config.seatHoldMinutes}
+              suffix="minutes"
+              onChange={(v) => updateConfig("seatHoldMinutes", v)}
+              subCardClass={subCardClass}
+              textPrimary={textPrimary}
+              textSecondary={textSecondary}
+              inputClass={inputClass}
+            />
+            <SettingNumber
+              label="Max Tickets Per Single Checkout"
+              value={config.maxTicketsPerBooking}
+              suffix="tickets"
+              onChange={(v) => updateConfig("maxTicketsPerBooking", v)}
+              subCardClass={subCardClass}
+              textPrimary={textPrimary}
+              textSecondary={textSecondary}
+              inputClass={inputClass}
+            />
+          </div>
+        </section>
       </div>
+
+      {/* =======================================================
+         UPLOAD LOGO MODAL DIALOG POPUP
+      ======================================================== */}
+      {isUploadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div
+            className={`w-full max-w-md rounded-3xl border p-6 shadow-2xl space-y-6 ${
+              isLight
+                ? "bg-white border-slate-300 text-slate-900 shadow-2xl ring-1 ring-slate-200"
+                : "bg-slate-900 border-slate-800 text-slate-100 shadow-2xl"
+            }`}
+          >
+            <div className="flex items-center justify-between border-b border-slate-700/40 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-amber-500/15 text-amber-500">
+                  <Upload className="h-5 w-5" />
+                </div>
+                <h3
+                  className={`text-base font-black tracking-tight ${textPrimary}`}
+                >
+                  Upload Brand Logo
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsUploadModalOpen(false);
+                  setSelectedFile(null);
+                  setPreviewImage(null);
+                }}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleUploadSubmit} className="space-y-5">
+              <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-700/60 rounded-2xl p-6 text-center bg-slate-950/30 hover:border-amber-500/50 transition">
+                {previewImage ? (
+                  <div className="relative h-24 w-48 flex items-center justify-center mb-3">
+                    <img
+                      src={previewImage}
+                      alt="Logo Preview"
+                      className="max-h-full max-w-full object-contain rounded-xl border border-white/10 shadow-md"
+                    />
+                  </div>
+                ) : (
+                  <ImageIcon className="h-12 w-12 text-slate-500 mb-2" />
+                )}
+
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-xs font-black text-slate-950 shadow-md hover:bg-amber-400 transition">
+                  <Upload className="h-4 w-4" />
+                  <span>Choose Image File</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                </label>
+                <p className="mt-2 text-[11px] text-slate-400">
+                  PNG, JPG, SVG or WEBP (Max 5MB)
+                </p>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsUploadModalOpen(false);
+                    setSelectedFile(null);
+                    setPreviewImage(null);
+                  }}
+                  className={`w-1/2 rounded-xl border py-3 text-xs font-bold transition cursor-pointer ${
+                    isLight
+                      ? "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
+                      : "border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700"
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!selectedFile || uploading}
+                  className="w-1/2 flex items-center justify-center gap-2 rounded-xl bg-amber-500 py-3 text-xs font-black text-slate-950 shadow-lg shadow-amber-500/20 hover:bg-amber-400 transition cursor-pointer disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <span>Confirm & Upload</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-/* -------------------------------- */
-/* Reusable components              */
-/* -------------------------------- */
 
 function SettingToggle({
   title,
   description,
   checked,
   onChange,
+  subCardClass,
+  textPrimary,
+  textSecondary,
 }: {
   title: string;
   description: string;
   checked: boolean;
   onChange: (value: boolean) => void;
+  subCardClass: string;
+  textPrimary: string;
+  textSecondary: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-4 rounded-2xl border border-slate-800 bg-slate-950/50 p-4">
+    <div
+      className={`flex items-center justify-between gap-4 rounded-2xl border p-4 transition shadow-sm ${subCardClass}`}
+    >
       <div>
-        <p className="text-sm font-bold text-white">{title}</p>
-
-        <p className="mt-1 text-xs text-slate-500">
+        <p className={`text-xs font-black ${textPrimary}`}>{title}</p>
+        <p className={`mt-0.5 text-[11px] ${textSecondary} font-semibold`}>
           {description}
         </p>
       </div>
 
-      <Toggle checked={checked} onChange={onChange} />
+      <button
+        type="button"
+        onClick={() => onChange(!checked)}
+        className={`relative h-6 w-11 rounded-full transition cursor-pointer shrink-0 ${
+          checked ? "bg-red-600 shadow-md shadow-red-600/30" : "bg-slate-700"
+        }`}
+      >
+        <span
+          className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${
+            checked ? "left-6" : "left-1"
+          }`}
+        />
+      </button>
     </div>
   );
 }
@@ -700,16 +698,26 @@ function SettingNumber({
   value,
   suffix,
   onChange,
+  subCardClass,
+  textPrimary,
+  textSecondary,
+  inputClass,
 }: {
   label: string;
   value: number;
   suffix: string;
   onChange: (value: number) => void;
+  subCardClass: string;
+  textPrimary: string;
+  textSecondary: string;
+  inputClass: string;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-slate-950/50 p-4 sm:flex-row sm:items-center sm:justify-between">
+    <div
+      className={`flex flex-col gap-3 rounded-2xl border p-4 sm:flex-row sm:items-center sm:justify-between transition shadow-sm ${subCardClass}`}
+    >
       <div>
-        <p className="text-sm font-bold text-white">{label}</p>
+        <p className={`text-xs font-black ${textPrimary}`}>{label}</p>
       </div>
 
       <div className="flex items-center gap-2">
@@ -717,13 +725,10 @@ function SettingNumber({
           type="number"
           min={0}
           value={value}
-          onChange={(e) =>
-            onChange(Number(e.target.value))
-          }
-          className="w-24 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-right text-sm font-bold text-white outline-none focus:border-red-500"
+          onChange={(e) => onChange(Number(e.target.value))}
+          className={`w-24 rounded-xl border px-3 py-2 text-right text-xs font-bold outline-none ${inputClass}`}
         />
-
-        <span className="text-xs text-slate-500">
+        <span className={`text-[11px] ${textSecondary} min-w-[70px] font-bold`}>
           {suffix}
         </span>
       </div>
