@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -120,8 +120,22 @@ export default function MovieSection({
   const scrollProgress = useScrollProgress();
   const sceneHue = hueFromProgress(scrollProgress); // indigo → gold sweep
 
+  // ---- UI-only hide list — excludes movies from the hero BANNER ONLY,
+  // without touching the database or hiding them from the grid/search.
+  const HIDDEN_FROM_HERO_TITLES = useMemo(() => new Set(["titanic"]), []);
+  const heroEligibleMovies = useMemo(
+    () =>
+      movies.filter(
+        (movie) =>
+          !HIDDEN_FROM_HERO_TITLES.has(
+            (movie.title || "").trim().toLowerCase(),
+          ),
+      ),
+    [movies, HIDDEN_FROM_HERO_TITLES],
+  );
+
   // ---- hero rotation (7 movies, 6s interval — smoother than a rapid 2s) ---
-  const featured = movies.slice(0, 7);
+  const featured = heroEligibleMovies.slice(0, 7);
   const [activeHeroIndex, setActiveHeroIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -258,6 +272,74 @@ export default function MovieSection({
             transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
             width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
         }
+        @keyframes backdrop-kenburns {
+          0% {
+            transform: scale(1) translate(0, 0);
+          }
+          100% {
+            transform: scale(1.1) translate(-1.5%, -1%);
+          }
+        }
+        .backdrop-kenburns {
+          animation: backdrop-kenburns 20s ease-in-out infinite alternate;
+        }
+        @keyframes hero-glow-drift {
+          0%,
+          100% {
+            transform: translate(0, 0) scale(1);
+          }
+          50% {
+            transform: translate(-6%, 8%) scale(1.15);
+          }
+        }
+        .hero-glow {
+          animation: hero-glow-drift 12s ease-in-out infinite;
+        }
+        @keyframes light-sweep {
+          0% {
+            transform: translateX(-40%) skewX(-18deg);
+            opacity: 0;
+          }
+          8% {
+            opacity: 0.55;
+          }
+          30% {
+            opacity: 0;
+          }
+          100% {
+            transform: translateX(220%) skewX(-18deg);
+            opacity: 0;
+          }
+        }
+        .light-sweep {
+          animation: light-sweep 7s ease-in-out infinite;
+        }
+        @keyframes bulb-chase {
+          0%,
+          100% {
+            opacity: 0.22;
+            box-shadow: 0 0 0 0 currentColor;
+          }
+          50% {
+            opacity: 1;
+            box-shadow: 0 0 7px 1.5px currentColor;
+          }
+        }
+        .bulb {
+          animation: bulb-chase 2.6s ease-in-out infinite;
+        }
+        .gallery-card {
+          transform: rotateY(var(--fan, 0deg)) translateZ(var(--depth, 0px));
+          transition:
+            transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+            box-shadow 0.4s ease;
+        }
+        .gallery-card:hover {
+          transform: rotateY(0deg) translateY(-10px) translateZ(40px)
+            scale(1.06);
+          box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.7);
+          z-index: 20;
+        }
       `}</style>
 
       {/* ambient film-grain overlay, fixed, purely atmospheric */}
@@ -303,68 +385,102 @@ export default function MovieSection({
             >
               <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@400;500;600;700;800&display=swap');`}</style>
 
-              {/* backdrop image — masked into a soft oval on the right, not a hard-edged rectangle */}
-              <div className="absolute inset-0">
-                {heroPoster ? (
-                  // eslint-disable-next-line @next/next/no-img-element
+              {/* backdrop — one consistent cinematic background, not tied to
+                  any single movie's art, so it never crops or distorts */}
+              <div className="absolute inset-0 overflow-hidden">
+                <div
+                  className="absolute inset-0"
+                  style={{
+                    background:
+                      "radial-gradient(130% 100% at 82% 0%, #1C1533 0%, #100D18 42%, #0A0908 68%, #050405 100%)",
+                  }}
+                />
+
+                {/* soft light spilling in from the top right, like a projector beam */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -top-1/4 right-[4%] w-[50%] h-[75%] rounded-full blur-3xl opacity-40"
+                  style={{
+                    background:
+                      "radial-gradient(circle, rgba(130,120,255,0.35), transparent 70%)",
+                  }}
+                />
+
+                {/* faint ambient tint, hue tied to scroll position */}
+                <div
+                  aria-hidden
+                  className="hero-glow pointer-events-none absolute -top-1/3 right-0 w-2/3 h-2/3 rounded-full blur-3xl opacity-10"
+                  style={{
+                    background:
+                      "radial-gradient(circle, hsla(var(--scene-hue), 65%, 50%, 0.5), transparent 70%)",
+                  }}
+                />
+
+                {/* a soft streak of light glides across the panel on a loop —
+                    the "watch it again" glint */}
+                <div
+                  aria-hidden
+                  className="light-sweep pointer-events-none absolute top-0 left-0 h-full w-1/4"
+                  style={{
+                    background:
+                      "linear-gradient(90deg, transparent, rgba(245,241,232,0.22), transparent)",
+                    mixBlendMode: "screen",
+                  }}
+                />
+              </div>
+
+              {/* the movie's own poster — shown in full, never cropped, as a
+                  framed card floating over the ambient backdrop above */}
+              {heroPoster ? (
+                <div className="absolute inset-y-8 sm:inset-y-10 right-4 sm:right-8 md:right-14 flex items-center justify-end max-w-[48%] sm:max-w-[42%] md:max-w-[36%] lg:max-w-[32%]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     key={currentHeroMovie?.id ?? activeHeroIndex}
                     src={heroPoster}
                     alt={getTitle(currentHeroMovie)}
-                    className="w-full h-full object-cover"
-                    style={{
-                      WebkitMaskImage:
-                        "radial-gradient(60% 78% at 74% 48%, black 52%, transparent 96%)",
-                      maskImage:
-                        "radial-gradient(60% 78% at 74% 48%, black 52%, transparent 96%)",
-                    }}
+                    className="backdrop-kenburns h-full w-auto max-w-full object-contain rounded-2xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.85)] ring-1 ring-white/10"
                   />
-                ) : (
+                </div>
+              ) : (
+                <div className="absolute inset-y-8 sm:inset-y-10 right-4 sm:right-8 md:right-14 w-[38%] sm:w-[32%] md:w-[26%] rounded-2xl overflow-hidden shadow-[0_25px_70px_-15px_rgba(0,0,0,0.85)] ring-1 ring-white/10">
                   <div
                     className="w-full h-full"
+                    style={{ background: heroAccent }}
+                  />
+                </div>
+              )}
+
+              {/* marquee bulb chase — frames the panel like theatre signage,
+                  lights travelling the border on a loop */}
+              <div className="pointer-events-none absolute inset-x-6 top-3 z-30 hidden sm:flex justify-between sm:inset-x-10">
+                {Array.from({ length: 26 }).map((_, i) => (
+                  <span
+                    key={`bulb-top-${i}`}
+                    className="bulb rounded-full"
                     style={{
-                      background: heroAccent,
-                      WebkitMaskImage:
-                        "radial-gradient(60% 78% at 74% 48%, black 52%, transparent 96%)",
-                      maskImage:
-                        "radial-gradient(60% 78% at 74% 48%, black 52%, transparent 96%)",
+                      width: 5,
+                      height: 5,
+                      background: i % 2 === 0 ? "#D9A441" : "#C0392B",
+                      color: i % 2 === 0 ? "#D9A441" : "#C0392B",
+                      animationDelay: `${i * 0.09}s`,
                     }}
                   />
-                )}
-                {/* dark ground on the left for legible copy, fading toward the image on the right */}
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background: `linear-gradient(90deg, #0A0908 0%, rgba(10,9,8,0.9) 22%, rgba(10,9,8,0.35) 46%, rgba(10,9,8,0.05) 66%),
-                      linear-gradient(0deg, rgba(10,9,8,0.55) 0%, transparent 20%, transparent 80%, rgba(10,9,8,0.55) 100%)`,
-                  }}
-                />
-
-                {/* play button, centered over the visible part of the image */}
-                {heroPoster && (
-                  <button
-                    type="button"
-                    onClick={() =>
-                      router.push(`/customer/movies/${currentHeroMovie.id}`)
-                    }
-                    aria-label={`Watch trailer for ${getTitle(currentHeroMovie)}`}
-                    className="absolute flex items-center justify-center w-16 h-16 rounded-full transition-transform hover:scale-110 cursor-pointer"
+                ))}
+              </div>
+              <div className="pointer-events-none absolute inset-x-6 bottom-3 z-30 hidden sm:flex justify-between sm:inset-x-10">
+                {Array.from({ length: 26 }).map((_, i) => (
+                  <span
+                    key={`bulb-bottom-${i}`}
+                    className="bulb rounded-full"
                     style={{
-                      left: "70%",
-                      top: "45%",
-                      transform: "translate(-50%, -50%)",
-                      background: "rgba(255,255,255,0.92)",
-                      boxShadow: "0 10px 30px rgba(0,0,0,0.5)",
+                      width: 5,
+                      height: 5,
+                      background: i % 2 === 0 ? "#C0392B" : "#D9A441",
+                      color: i % 2 === 0 ? "#C0392B" : "#D9A441",
+                      animationDelay: `${i * 0.09 + 1.2}s`,
                     }}
-                  >
-                    <Play
-                      size={22}
-                      color="#C0392B"
-                      fill="#C0392B"
-                      style={{ marginLeft: 2 }}
-                    />
-                  </button>
-                )}
+                  />
+                ))}
               </div>
 
               <div
@@ -497,40 +613,75 @@ export default function MovieSection({
                       </div>
                     </div>
 
-                    <div className="flex gap-4 overflow-x-auto hide-scrollbar pb-1">
-                      {featured.map((m, i) => {
-                        if (i === activeHeroIndex) return null;
-                        const thumb = getPosterUrl(m);
-                        return (
-                          <button
-                            key={getId(m, i)}
-                            onClick={() => setActiveHeroIndex(i)}
-                            aria-label={`Show ${getTitle(m)}`}
-                            className="shrink-0 rounded-xl overflow-hidden relative transition-transform hover:-translate-y-1 cursor-pointer"
-                            style={{
-                              width: 160,
-                              height: 100,
-                              background: thumb
-                                ? undefined
-                                : fallbackAccent(getTitle(m)),
-                              border: "1px solid rgba(255,255,255,0.12)",
-                            }}
-                          >
-                            {thumb ? (
-                              // eslint-disable-next-line @next/next/no-img-element
-                              <img
-                                src={thumb}
-                                alt={getTitle(m)}
-                                className="absolute inset-0 w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <Film size={20} color="rgba(255,255,255,0.3)" />
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
+                    <div
+                      className="flex items-end gap-5 overflow-x-auto hide-scrollbar pb-2"
+                      style={{ perspective: "1100px" }}
+                    >
+                      {featured
+                        .map((m, i) => ({ m, i }))
+                        .filter(({ i }) => i !== activeHeroIndex)
+                        .map(({ m, i }, idx) => {
+                          const thumb = getPosterUrl(m);
+                          const fan = (idx % 3) - 1; // -1 / 0 / 1 — a gentle alternating tilt
+                          return (
+                            <button
+                              key={getId(m, i)}
+                              onClick={() => setActiveHeroIndex(i)}
+                              aria-label={`Show ${getTitle(m)}`}
+                              className="gallery-card shrink-0 rounded-xl overflow-hidden relative cursor-pointer border border-white/10 bg-black/30 backdrop-blur-sm shadow-[0_12px_28px_-10px_rgba(0,0,0,0.6)]"
+                              style={
+                                {
+                                  width: 116,
+                                  height: 174,
+                                  "--fan": `${fan * 10}deg`,
+                                  "--depth": `${-Math.abs(fan) * 14}px`,
+                                } as CSSProperties
+                              }
+                            >
+                              {thumb ? (
+                                <>
+                                  {/* blurred fill so a portrait poster still fills the box even
+                                      though the sharp copy above is never cropped */}
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={thumb}
+                                    alt=""
+                                    aria-hidden
+                                    className="absolute inset-0 w-full h-full object-cover scale-110 blur-md opacity-50"
+                                  />
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={thumb}
+                                    alt={getTitle(m)}
+                                    className="absolute inset-0 w-full h-full object-contain"
+                                  />
+                                </>
+                              ) : (
+                                <div
+                                  className="w-full h-full flex items-center justify-center"
+                                  style={{
+                                    background: fallbackAccent(getTitle(m)),
+                                  }}
+                                >
+                                  <Film
+                                    size={20}
+                                    color="rgba(255,255,255,0.3)"
+                                  />
+                                </div>
+                              )}
+                              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/85 to-transparent" />
+                              <span
+                                className="absolute bottom-2 left-2 right-2 text-[10px] font-semibold truncate text-left"
+                                style={{
+                                  color: "#F5F1E8",
+                                  textShadow: "0 1px 3px rgba(0,0,0,0.9)",
+                                }}
+                              >
+                                {getTitle(m)}
+                              </span>
+                            </button>
+                          );
+                        })}
                     </div>
                   </div>
                 )}

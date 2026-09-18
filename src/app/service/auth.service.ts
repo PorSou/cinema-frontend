@@ -15,6 +15,11 @@ const ACCESS_TOKEN_KEY = "accessToken";
 const REFRESH_TOKEN_KEY = "refreshToken";
 const USER_ROLE_KEY = "userRole";
 
+// NOTE: adjust this to match your backend's real refresh-token route if it's
+// not /auth/refresh — check your AuthController. Kept identical to the one
+// in api.ts's response interceptor; if you change one, change both.
+const REFRESH_ENDPOINT = "/auth/refresh";
+
 export const AUTH_CHANGE_EVENT = "cinemax-auth-change";
 
 const notifyAuthChange = () => {
@@ -40,6 +45,60 @@ const clearCookie = (name: string) => {
   document.cookie = `${name}=; path=/; Max-Age=0; SameSite=Lax`;
 };
 
+// ---- proactive token refresh ----------------------------------------------
+// The access token here is short-lived (~5-10 min). Relying only on a
+// reactive "refresh after a 401" means the FIRST request after the token
+// dies always fails once before quietly recovering — fine for background
+// polling, but jarring for whatever the user just clicked. Decoding the
+// token's own `exp` claim lets us refresh a little before it actually
+// expires, so in practice the user never sees an expired token at all.
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+const decodeJwtExp = (token: string): number | null => {
+  try {
+    const payload = token.split(".")[1];
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const json = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + c.charCodeAt(0).toString(16).padStart(2, "0"))
+        .join(""),
+    );
+    const parsed = JSON.parse(json);
+    return typeof parsed.exp === "number" ? parsed.exp : null;
+  } catch {
+    return null;
+  }
+};
+
+const scheduleProactiveRefresh = (accessToken: string) => {
+  if (typeof window === "undefined") return;
+  if (refreshTimer) clearTimeout(refreshTimer);
+
+  const expSeconds = decodeJwtExp(accessToken);
+  if (!expSeconds) return; // not a decodable JWT — fall back to reactive-only refresh
+
+  const msUntilExpiry = expSeconds * 1000 - Date.now();
+  // Refresh 60s before it actually expires; never schedule less than 5s out
+  // (covers a token that's already nearly-expired on page load).
+  const refreshInMs = Math.max(msUntilExpiry - 60_000, 5_000);
+
+  refreshTimer = setTimeout(() => {
+    AuthService.refreshSession().catch(() => {
+      // Refresh token is also dead/revoked — this is a real logout.
+      AuthService.logout();
+      window.location.href = "/login";
+    });
+  }, refreshInMs);
+};
+
+const clearScheduledRefresh = () => {
+  if (refreshTimer) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
+};
+
 // Shared session-saving logic for login methods
 const persistSession = (authData: AuthResponse) => {
   if (!authData?.accessToken) return;
@@ -53,7 +112,29 @@ const persistSession = (authData: AuthResponse) => {
   setCookie(ACCESS_TOKEN_KEY, authData.accessToken);
   setCookie(USER_ROLE_KEY, authData.user?.role || "CUSTOMER");
 
+  scheduleProactiveRefresh(authData.accessToken);
   notifyAuthChange();
+};
+
+let refreshPromise: Promise<string> | null = null;
+
+const requestNewAccessToken = async (): Promise<string> => {
+  const refreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY);
+  if (!refreshToken) throw new Error("No refresh token available");
+
+  const res = await api.post<ApiResponse<AuthResponse>>(REFRESH_ENDPOINT, {
+    refreshToken,
+  });
+  const authData = res.data.body?.data || (res.data as any).data;
+
+  if (!authData?.accessToken) {
+    throw new Error("Refresh response did not include an accessToken");
+  }
+
+  // Full persistSession so the mirrored cookie + reschedule all happen
+  // together, same as a fresh login.
+  persistSession(authData);
+  return authData.accessToken;
 };
 
 /**
@@ -160,8 +241,30 @@ export const AuthService = {
     return sessionStorage.getItem(USER_ROLE_KEY);
   },
 
+  // Silently exchanges the stored refreshToken for a new accessToken.
+  // Shared across simultaneous callers so a burst of expired requests only
+  // triggers one network call instead of one per caller.
+  refreshSession: (): Promise<string> => {
+    if (!refreshPromise) {
+      refreshPromise = requestNewAccessToken().finally(() => {
+        refreshPromise = null;
+      });
+    }
+    return refreshPromise;
+  },
+
+  // Call once when the app mounts (e.g. top of AdminLayout, or a root
+  // provider) so a page refresh/reopen schedules the next silent refresh
+  // immediately, instead of only reacting after the first 401.
+  resumeSession: () => {
+    const token = AuthService.getAccessToken();
+    if (token) scheduleProactiveRefresh(token);
+  },
+
   logout: () => {
     if (typeof window === "undefined") return;
+
+    clearScheduledRefresh();
 
     sessionStorage.removeItem(ACCESS_TOKEN_KEY);
     sessionStorage.removeItem(REFRESH_TOKEN_KEY);

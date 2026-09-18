@@ -93,6 +93,10 @@ export default function Navbar() {
       try {
         const currentUser = AuthService.getCurrentUser();
         setUser(currentUser ?? null);
+        // A previous avatar URL (maybe from a different account, or one
+        // that 404'd once) shouldn't keep forcing the initials fallback
+        // once we have a fresh user loaded.
+        setAvatarError(false);
 
         if (currentUser) {
           try {
@@ -104,6 +108,7 @@ export default function Navbar() {
               setUser((prev) =>
                 prev ? { ...prev, avatarUrl: freshAvatar } : prev,
               );
+              setAvatarError(false);
             }
           } catch {
             // Silent fallback
@@ -120,6 +125,21 @@ export default function Navbar() {
     window.addEventListener(AUTH_CHANGE_EVENT, loadUser);
     return () => window.removeEventListener(AUTH_CHANGE_EVENT, loadUser);
   }, [pathname]);
+
+  /* ============================================================
+   * KEEP THE SESSION ALIVE ON CUSTOMER-FACING PAGES TOO
+   * ------------------------------------------------------------
+   * This component renders on every non-/admin route (it returns null on
+   * /admin/*). AdminLayout schedules its own proactive token refresh, but
+   * a customer who never visits /admin had nothing doing that — meaning
+   * plain browsing could hit the same "silently logged out after the
+   * access token's ~5-10 min TTL" issue the admin side had. One-time call
+   * on mount; AuthService itself handles skipping this when logged out.
+   * ========================================================== */
+
+  useEffect(() => {
+    AuthService.resumeSession();
+  }, []);
 
   /* ============================================================
    * CLOSE PROFILE DROPDOWN ON OUTSIDE CLICK

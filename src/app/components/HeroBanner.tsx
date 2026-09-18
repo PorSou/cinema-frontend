@@ -395,8 +395,8 @@ export default function HeroBanner({
                   aria-label={`Show ${getTitle(m)}`}
                   className="shrink-0 rounded-md overflow-hidden relative transition-all"
                   style={{
-                    width: 92,
-                    height: 56,
+                    width: 68,
+                    height: 100,
                     background: thumb ? undefined : fallbackAccent(getTitle(m)),
                     border:
                       i === active
@@ -405,16 +405,27 @@ export default function HeroBanner({
                     opacity: i === active ? 1 : 0.55,
                   }}
                 >
-                  {thumb && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={thumb}
-                      alt={getTitle(m)}
-                      className="absolute inset-0 w-full h-full object-cover"
-                    />
-                  )}
+                  {thumb ? (
+                    <>
+                      {/* blurred fill behind so the box never looks empty,
+                          while the sharp copy on top is never cropped */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={thumb}
+                        alt=""
+                        aria-hidden
+                        className="absolute inset-0 w-full h-full object-cover scale-110 blur-md opacity-50"
+                      />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={thumb}
+                        alt={getTitle(m)}
+                        className="absolute inset-0 w-full h-full object-contain"
+                      />
+                    </>
+                  ) : null}
                   <span
-                    className="absolute bottom-1 left-1.5 text-[10px] font-semibold truncate max-w-[80px]"
+                    className="absolute bottom-1 left-1.5 right-1.5 text-[10px] font-semibold truncate"
                     style={{
                       fontFamily: "Manrope, sans-serif",
                       color: "#F5F1E8",
