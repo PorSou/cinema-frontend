@@ -152,9 +152,8 @@ export default function CustomerMovieDetailsPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const { id } = use(params);
-
-  const movieId = Number(id);
+  const resolvedParams = use(params);
+  const movieId = Number(resolvedParams?.id);
 
   const router = useRouter();
 
@@ -237,7 +236,7 @@ export default function CustomerMovieDetailsPage({
   ===================================================== */
 
   const fetchReviews = async () => {
-    if (!movieId) return;
+    if (!movieId || isNaN(movieId)) return;
 
     try {
       setLoadingReviews(true);
@@ -260,7 +259,7 @@ export default function CustomerMovieDetailsPage({
 
   useEffect(() => {
     async function fetchMovieDetails() {
-      if (!movieId) {
+      if (!movieId || isNaN(movieId)) {
         setLoading(false);
         return;
       }
@@ -438,7 +437,7 @@ export default function CustomerMovieDetailsPage({
 
         <Link
           href="/"
-          className="mt-5 flex items-center gap-2 bg-amber-500 px-5 py-3 text-xs font-black text-slate-950"
+          className="mt-5 flex items-center gap-2 bg-amber-500 px-5 py-3 text-xs font-black text-slate-950 rounded-xl"
         >
           <ArrowLeft className="h-4 w-4" />
 
@@ -507,10 +506,6 @@ export default function CustomerMovieDetailsPage({
         isDark ? "bg-[#08070C] text-white" : "bg-slate-50 text-slate-900"
       }`}
     >
-      {/* ===================================================
-          GLOBAL STYLES & ATMOSPHERIC GRAIN
-      =================================================== */}
-
       <style jsx global>{`
         @import url("https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@400;500;600;700;800&display=swap");
 
@@ -579,23 +574,6 @@ export default function CustomerMovieDetailsPage({
           color: ${isDark ? "#F8F5EF" : "#0F172A"};
         }
 
-        .ticket-notch {
-          clip-path: polygon(
-            0 10px,
-            6px 10px,
-            6px 0,
-            calc(100% - 6px) 0,
-            calc(100% - 6px) 10px,
-            100% 10px,
-            100% calc(100% - 10px),
-            calc(100% - 6px) calc(100% - 10px),
-            calc(100% - 6px) 100%,
-            6px 100%,
-            6px calc(100% - 10px),
-            0 calc(100% - 10px)
-          );
-        }
-
         ::-webkit-scrollbar {
           display: none;
         }
@@ -634,8 +612,8 @@ export default function CustomerMovieDetailsPage({
         style={{
           background: isDark
             ? `radial-gradient(ellipse 1100px 650px at 15% 10%, rgba(91,75,138,0.28), transparent 60%),
-               radial-gradient(ellipse 900px 700px at 95% 90%, rgba(242,169,59,0.14), transparent 60%),
-               #08070C`
+                radial-gradient(ellipse 900px 700px at 95% 90%, rgba(242,169,59,0.14), transparent 60%),
+                #08070C`
             : `radial-gradient(ellipse 1100px 650px at 15% 10%, rgba(91,75,138,0.18), transparent 60%), #F1ECDF`,
           fontFamily: "'Work Sans', sans-serif",
         }}
@@ -733,7 +711,7 @@ export default function CustomerMovieDetailsPage({
             </div>
 
             {/* =================================================
-                MOVIE INFORMATION (Midnight Marquee Typography)
+                MOVIE INFORMATION
             ================================================= */}
 
             <div className="min-w-0 max-w-3xl">
@@ -883,7 +861,7 @@ export default function CustomerMovieDetailsPage({
             </div>
 
             {/* =================================================
-                TRAILER (Fixed height to match the poster on the left)
+                TRAILER
             ================================================= */}
 
             {embedTrailerUrl && (
@@ -919,19 +897,6 @@ export default function CustomerMovieDetailsPage({
                 </div>
               </div>
             )}
-          </div>
-
-          <div className="mt-14 flex items-center gap-3 opacity-60">
-            {Array.from({
-              length: 18,
-            }).map((_, index) => (
-              <span
-                key={index}
-                className={`h-1 w-1 rounded-full ${
-                  index % 5 === 0 ? "bg-amber-500" : "bg-slate-600"
-                }`}
-              />
-            ))}
           </div>
         </div>
       </section>
@@ -1038,8 +1003,6 @@ export default function CustomerMovieDetailsPage({
 
                   return (
                     <div key={branch.id}>
-                      {/* CINEMA HEADER */}
-
                       <div
                         className={`mb-5 flex items-center gap-4 border-b pb-4 ${
                           isDark ? "border-white/10" : "border-slate-200"
@@ -1079,7 +1042,6 @@ export default function CustomerMovieDetailsPage({
                                     : "rgba(0,0,0,0.08)",
                                 }}
                               >
-                                {/* Left Time/Hall Box */}
                                 <div className="flex-1 space-y-3 p-5">
                                   <div className="flex items-center justify-between">
                                     <span
@@ -1103,18 +1065,6 @@ export default function CustomerMovieDetailsPage({
                                   </div>
                                 </div>
 
-                                {/* Ticket Notch Dividers */}
-                                <div className="relative flex w-0 items-center justify-center">
-                                  <div
-                                    className={`absolute -left-2.5 -top-3 h-5 w-5 rounded-full border-r ${isDark ? "border-white/10 bg-[#08070C]" : "border-slate-200 bg-slate-50"}`}
-                                  />
-                                  <div
-                                    className={`absolute -bottom-3 -left-2.5 h-5 w-5 rounded-full border-r ${isDark ? "border-white/10 bg-[#08070C]" : "border-slate-200 bg-slate-50"}`}
-                                  />
-                                  <div className="absolute bottom-2 top-2 border-l-2 border-dashed border-amber-500/30" />
-                                </div>
-
-                                {/* Right Action Button Box */}
                                 <div className="flex w-[110px] shrink-0 flex-col items-center justify-center border-l border-slate-800/10 dark:border-white/10 p-4">
                                   <button
                                     onClick={() =>
@@ -1155,20 +1105,6 @@ export default function CustomerMovieDetailsPage({
                 </p>
               </div>
             )}
-
-            {filteredShowtimes.length === 0 && cinemaBranches.length > 0 && (
-              <div className="py-10 text-center">
-                <Calendar className="mx-auto h-8 w-8 text-slate-600" />
-
-                <p className="mt-3 text-xs font-bold text-slate-500">
-                  {t(
-                    "No showtimes available for this date.",
-                    "មិនមានម៉ោងបញ្ចាំងសម្រាប់ថ្ងៃនេះទេ។",
-                    "此日期暂无放映时间。",
-                  )}
-                </p>
-              </div>
-            )}
           </div>
         )}
       </section>
@@ -1202,8 +1138,6 @@ export default function CustomerMovieDetailsPage({
           </div>
 
           <div className="grid grid-cols-1 gap-10 lg:grid-cols-[380px_1fr]">
-            {/* REVIEW FORM */}
-
             <div
               className={`border p-6 rounded-2xl shadow-xl ${
                 isDark
@@ -1273,8 +1207,6 @@ export default function CustomerMovieDetailsPage({
               </button>
             </div>
 
-            {/* REVIEW LIST */}
-
             <div className="space-y-4">
               {loadingReviews ? (
                 <div className="py-10 text-center">
@@ -1339,8 +1271,6 @@ export default function CustomerMovieDetailsPage({
           </div>
         </section>
       )}
-
-      {/* Bottom spacing */}
 
       <div className="h-20" />
     </div>

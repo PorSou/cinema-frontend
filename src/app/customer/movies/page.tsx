@@ -99,10 +99,10 @@ interface MovieSectionProps {
 }
 
 export default function MovieSection({
-  movies,
+  movies = [],
   loading,
   movieError,
-  allGenres,
+  allGenres = [],
 }: MovieSectionProps) {
   const router = useRouter();
   const { theme, t, translateGenre } = useSettings();
@@ -125,7 +125,7 @@ export default function MovieSection({
   const HIDDEN_FROM_HERO_TITLES = useMemo(() => new Set(["titanic"]), []);
   const heroEligibleMovies = useMemo(
     () =>
-      movies.filter(
+      (movies || []).filter(
         (movie) =>
           !HIDDEN_FROM_HERO_TITLES.has(
             (movie.title || "").trim().toLowerCase(),
@@ -161,7 +161,7 @@ export default function MovieSection({
   const filteredMovies = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
 
-    return movies.filter((movie) => {
+    return (movies || []).filter((movie) => {
       const title = movie.title?.toLowerCase() || "";
       const matchesSearch = !query || title.includes(query);
 
@@ -745,7 +745,6 @@ export default function MovieSection({
                   ? "border-white/10 bg-white/[0.04] text-white placeholder-slate-500 focus:border-amber-500"
                   : "border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:border-amber-500 shadow-sm"
               }`}
-              style={{ borderColor: isDark ? undefined : undefined }}
             />
           </div>
         </div>
@@ -900,16 +899,11 @@ export default function MovieSection({
                 data-aos="fade-up"
                 data-aos-delay={index * 100}
                 data-aos-duration="700"
-                // className={`reveal-card ${gridReveal.visible ? "is-visible" : ""} group flex flex-col justify-between rounded-2xl border overflow-hidden shadow-xl hover:-translate-y-1.5 transition-all duration-300 ease-out cursor-pointer ${
-                //   isDark
-                //     ? "border-white/10 bg-slate-900/60 hover:border-amber-500/40"
-                //     : "border-slate-200 bg-white hover:border-amber-500/40"
-                // }`}
-                // style={{
-                //   transitionDelay: gridReveal.visible
-                //     ? `${(index % 8) * 55}ms`
-                //     : "0ms",
-                // }}
+                className={`group flex flex-col justify-between rounded-2xl border overflow-hidden shadow-xl hover:-translate-y-1.5 transition-all duration-300 ease-out cursor-pointer ${
+                  isDark
+                    ? "border-white/10 bg-slate-900/60 hover:border-amber-500/40"
+                    : "border-slate-200 bg-white hover:border-amber-500/40"
+                }`}
               >
                 <div
                   className={`relative aspect-[2/3] w-full overflow-hidden ${isDark ? "bg-slate-950" : "bg-slate-100"}`}
@@ -1070,7 +1064,6 @@ export default function MovieSection({
                       ? "border-white/10 bg-slate-900/50"
                       : "border-slate-200 bg-white shadow-sm"
                   }`}
-                  style={{ borderColor: undefined }}
                 >
                   <div
                     className="mx-auto flex h-11 w-11 items-center justify-center rounded-full border"
