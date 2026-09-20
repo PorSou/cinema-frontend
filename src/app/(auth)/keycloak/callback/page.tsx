@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 import {
@@ -12,7 +12,7 @@ import { useToast } from "@/app/context/ToastContext";
 
 const processedCodes = new Set<string>();
 
-export default function KeycloakCallbackPage() {
+function KeycloakCallbackContent() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const { addToast } = useToast();
@@ -43,9 +43,6 @@ export default function KeycloakCallbackPage() {
         }
         processedCodes.add(code);
 
-        // Strip the code from the URL right away, before any async work,
-        // so neither a manual refresh nor a dev-mode Fast Refresh reload
-        // can find a leftover code to resubmit.
         window.history.replaceState(null, "", window.location.pathname);
 
         const keycloakAccessToken = await exchangeCodeForToken(code, state);
@@ -62,20 +59,6 @@ export default function KeycloakCallbackPage() {
           throw new Error("Backend did not return a valid session.");
         }
 
-        // NOTE: we deliberately do NOT check `cancelled` here before
-        // redirecting. React 18 Strict Mode (dev only) mounts this
-        // component, tears it down, then mounts it again — the teardown
-        // sets THIS closure's `cancelled` to true even though the async
-        // work it kicked off keeps running in the background and is the
-        // one that actually completes successfully. If we gated the
-        // redirect on `cancelled`, that real, successful completion would
-        // silently swallow the navigation — which is exactly what was
-        // happening: the session got saved (hence the navbar updating)
-        // but the page never moved on. A browser navigation isn't a React
-        // state update, so it's safe to fire regardless of this
-        // component instance's mount status; the `processedCodes` guard
-        // above already ensures this whole block only ever runs to
-        // completion once per code.
         const message = auth.isNewUser
           ? "Welcome! Your account has been created."
           : `Welcome back, ${auth.user?.fullName ?? "there"}!`;
@@ -94,11 +77,6 @@ export default function KeycloakCallbackPage() {
         }
       } catch (err) {
         console.error("Keycloak callback error:", err);
-        // Here it's fine to still check `cancelled` — setError() is a
-        // real React state update, and skipping it on an unmounted
-        // instance avoids the "can't update state on unmounted
-        // component" warning. Unlike the redirect above, there's no
-        // harmful side effect from skipping this on the "old" instance.
         if (!cancelled) {
           const msg =
             err instanceof Error ? err.message : "Keycloak login failed.";
@@ -113,7 +91,6 @@ export default function KeycloakCallbackPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   if (error) {
@@ -143,5 +120,22 @@ export default function KeycloakCallbackPage() {
         <p className="text-sm text-slate-400">Completing login...</p>
       </div>
     </div>
+  );
+}
+
+export default function KeycloakCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-slate-950">
+          <div className="text-center">
+            <div className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-red-600" />
+            <p className="text-sm text-slate-400">Loading authentication...</p>
+          </div>
+        </div>
+      }
+    >
+      <KeycloakCallbackContent />
+    </Suspense>
   );
 }
