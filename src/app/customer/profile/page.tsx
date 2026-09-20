@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import AOS from "aos"; // 🌟 Import AOS
+import AOS from "aos";
 import {
   User,
   Ticket,
@@ -97,7 +97,7 @@ const getPosterUrl = (posterUrl?: string) => {
 
 type TabId = "profile" | "bookings" | "watchlist" | "membership";
 
-export default function CustomerProfilePage() {
+function CustomerProfileContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { theme } = useSettings();
@@ -321,10 +321,7 @@ export default function CustomerProfilePage() {
           onClose={() => setToast((prev) => ({ ...prev, message: null }))}
         />
 
-        {/* ======================================================
-            HEADER BANNER
-        ====================================================== */}
-
+        {/* HEADER BANNER */}
         <div
           data-aos="fade-up"
           data-aos-duration="800"
@@ -376,10 +373,7 @@ export default function CustomerProfilePage() {
           </div>
         </div>
 
-        {/* ======================================================
-            TABS
-        ====================================================== */}
-
+        {/* TABS */}
         <div
           data-aos="fade-up"
           data-aos-delay="100"
@@ -424,10 +418,7 @@ export default function CustomerProfilePage() {
           })}
         </div>
 
-        {/* ======================================================
-            TAB 1: ACCOUNT DETAILS
-        ====================================================== */}
-
+        {/* TAB 1: ACCOUNT DETAILS */}
         {activeTab === "profile" && (
           <div
             data-aos="fade-up"
@@ -550,10 +541,7 @@ export default function CustomerProfilePage() {
           </div>
         )}
 
-        {/* ======================================================
-            TAB 2: MY BOOKINGS
-        ====================================================== */}
-
+        {/* TAB 2: MY BOOKINGS */}
         {activeTab === "bookings" && (
           <div data-aos="fade-up" data-aos-delay="150" className="space-y-4">
             <div className="flex items-center justify-between gap-4">
@@ -678,10 +666,7 @@ export default function CustomerProfilePage() {
           </div>
         )}
 
-        {/* ======================================================
-            TAB 3: WATCHLIST
-        ====================================================== */}
-
+        {/* TAB 3: WATCHLIST */}
         {activeTab === "watchlist" && (
           <div data-aos="fade-up" data-aos-delay="150" className="space-y-4">
             <div className="flex items-center justify-between gap-4">
@@ -774,10 +759,7 @@ export default function CustomerProfilePage() {
           </div>
         )}
 
-        {/* ======================================================
-            TAB 4: MEMBERSHIP & REWARDS
-        ====================================================== */}
-
+        {/* TAB 4: MEMBERSHIP & REWARDS */}
         {activeTab === "membership" && (
           <div
             data-aos="fade-up"
@@ -841,5 +823,19 @@ export default function CustomerProfilePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function CustomerProfilePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-[#0A0C14]">
+          <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
+        </div>
+      }
+    >
+      <CustomerProfileContent />
+    </Suspense>
   );
 }
