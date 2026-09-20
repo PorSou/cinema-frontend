@@ -31,6 +31,10 @@ const SITE_DESCRIPTION =
 const OG_IMAGE =
   "https://res.cloudinary.com/dppeuniv1/image/upload/w_1200,h_630,c_fill,q_auto,f_jpg/v1789377134/i90z9f9zl749cf9oda2y.jpg";
 
+// Google Search Console HTML-tag verification.
+// Paste ONLY the value of content="..." from the meta tag Google shows you.
+const GOOGLE_SITE_VERIFICATION = "ujeGV3TIZ7nX7Zjk0Mbx0YCO9Iw9gITFGvOmiWyAmPs";
+
 export const metadata: Metadata = {
   // Makes relative URLs in metadata absolute
   metadataBase: new URL(SITE_URL),
@@ -52,6 +56,11 @@ export const metadata: Metadata = {
     "KHQR",
   ],
   robots: { index: true, follow: true },
+
+  // Google Search Console ownership verification (renders <meta name="google-site-verification">)
+  verification: {
+    google: GOOGLE_SITE_VERIFICATION,
+  },
 
   // Used by Telegram, Messenger, Facebook, WhatsApp, LinkedIn, Discord...
   openGraph: {
