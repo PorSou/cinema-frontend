@@ -340,6 +340,25 @@ export default function MovieSection({
           box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.7);
           z-index: 20;
         }
+        /* Phones: lay the thumbnails flat (no 3D fan) so nothing is cropped
+           by the horizontal scroller, and respect reduced-motion. */
+        @media (max-width: 767px) {
+          .gallery-card {
+            transform: none;
+          }
+          .gallery-card:hover {
+            transform: translateY(-4px);
+          }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .backdrop-kenburns,
+          .hero-glow,
+          .light-sweep,
+          .bulb,
+          .film-grain {
+            animation: none;
+          }
+        }
       `}</style>
 
       {/* ambient film-grain overlay, fixed, purely atmospheric */}
@@ -350,6 +369,8 @@ export default function MovieSection({
 
       {/* ============================
           HERO — full-bleed backdrop, left-aligned copy, "Next" strip
+          Mobile: poster on top, copy centred beneath, thumbnails scroll below.
+          md and up: unchanged desktop layout (poster floats on the right).
       ============================ */}
       {selectedTab === "NOW_SHOWING" &&
         !searchQuery &&
@@ -357,7 +378,7 @@ export default function MovieSection({
         !movieError &&
         featured.length > 0 && (
           <div
-            className="relative px-4 sm:px-6 md:px-10 pt-6 pb-14"
+            className="relative px-3 sm:px-6 md:px-10 pt-4 sm:pt-6 pb-10 md:pb-14"
             style={{ background: "#050505" }}
           >
             {/* ambient red glow bleeding out from beneath the rounded card */}
@@ -381,7 +402,7 @@ export default function MovieSection({
                 background: "#0A0908",
                 fontFamily: "'Work Sans', sans-serif",
               }}
-              className="relative max-w-[1600px] mx-auto w-full min-h-[600px] sm:min-h-[640px] overflow-hidden rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.85)]"
+              className="relative max-w-[1600px] mx-auto w-full md:min-h-[640px] overflow-hidden rounded-[20px] sm:rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.85)]"
             >
               <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@400;500;600;700;800&display=swap');`}</style>
 
@@ -430,19 +451,21 @@ export default function MovieSection({
               </div>
 
               {/* the movie's own poster — shown in full, never cropped, as a
-                  framed card floating over the ambient backdrop above */}
+                  framed card over the ambient backdrop above.
+                  Phones: sits in the normal flow, centred at the top.
+                  md+: floats on the right exactly like before. */}
               {heroPoster ? (
-                <div className="absolute inset-y-8 sm:inset-y-10 right-4 sm:right-8 md:right-14 flex items-center justify-end max-w-[48%] sm:max-w-[42%] md:max-w-[36%] lg:max-w-[32%]">
+                <div className="relative z-10 flex justify-center px-6 pt-8 sm:pt-10 md:pt-0 md:px-0 md:absolute md:inset-y-10 md:right-14 md:items-center md:justify-end md:max-w-[36%] lg:max-w-[32%]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     key={currentHeroMovie?.id ?? activeHeroIndex}
                     src={heroPoster}
                     alt={getTitle(currentHeroMovie)}
-                    className="backdrop-kenburns h-full w-auto max-w-full object-contain rounded-2xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.85)] ring-1 ring-white/10"
+                    className="backdrop-kenburns h-[280px] sm:h-[360px] md:h-full w-auto max-w-full object-contain rounded-2xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.85)] ring-1 ring-white/10"
                   />
                 </div>
               ) : (
-                <div className="absolute inset-y-8 sm:inset-y-10 right-4 sm:right-8 md:right-14 w-[38%] sm:w-[32%] md:w-[26%] rounded-2xl overflow-hidden shadow-[0_25px_70px_-15px_rgba(0,0,0,0.85)] ring-1 ring-white/10">
+                <div className="relative z-10 mx-auto mt-8 sm:mt-10 md:mt-0 h-[280px] w-[187px] sm:h-[360px] sm:w-[240px] md:h-auto md:w-[26%] md:absolute md:inset-y-10 md:right-14 md:mx-0 rounded-2xl overflow-hidden shadow-[0_25px_70px_-15px_rgba(0,0,0,0.85)] ring-1 ring-white/10">
                   <div
                     className="w-full h-full"
                     style={{ background: heroAccent }}
@@ -485,7 +508,7 @@ export default function MovieSection({
 
               <div
                 ref={heroReveal.ref}
-                className={`reveal-up ${heroReveal.visible ? "is-visible" : ""} relative z-10 max-w-7xl mx-auto px-6 md:px-16 pt-28 pb-10 min-h-[680px] flex flex-col justify-between`}
+                className={`reveal-up ${heroReveal.visible ? "is-visible" : ""} relative z-10 max-w-7xl mx-auto px-5 sm:px-10 md:px-16 pt-6 sm:pt-8 md:pt-28 pb-8 sm:pb-10 md:min-h-[680px] flex flex-col justify-between`}
               >
                 {/* Copy block */}
                 <div
@@ -493,9 +516,9 @@ export default function MovieSection({
                   onMouseMove={posterTilt.onMouseMove}
                   onMouseLeave={posterTilt.onMouseLeave}
                   style={posterTilt.style}
-                  className="max-w-xl"
+                  className="max-w-xl mx-auto md:mx-0 text-center md:text-left"
                 >
-                  <div className="flex items-center gap-1 mb-5">
+                  <div className="flex items-center justify-center md:justify-start gap-1 mb-4 md:mb-5">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
                         key={i}
@@ -508,14 +531,14 @@ export default function MovieSection({
 
                   <h1
                     style={{ color: "#F5F1E8" }}
-                    className="text-4xl sm:text-5xl md:text-6xl font-bold leading-[1.05] mb-3"
+                    className="text-3xl sm:text-5xl md:text-6xl font-bold leading-[1.1] md:leading-[1.05] mb-3 break-words"
                   >
                     {getTitle(currentHeroMovie)}
                   </h1>
 
                   {(heroGenres.length > 0 || heroRuntime) && (
                     <div
-                      className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs font-semibold mb-5"
+                      className="flex flex-wrap items-center justify-center md:justify-start gap-x-2 gap-y-1 text-xs font-semibold mb-4 md:mb-5"
                       style={{ color: "#9C97A3" }}
                     >
                       {heroGenres.map((g, i) => (
@@ -540,20 +563,20 @@ export default function MovieSection({
 
                   {heroSynopsis && (
                     <p
-                      className="text-sm leading-relaxed line-clamp-3 mb-7"
+                      className="text-sm leading-relaxed line-clamp-3 mb-6 md:mb-7"
                       style={{ color: "#ACA8B4" }}
                     >
                       {heroSynopsis}
                     </p>
                   )}
 
-                  <div className="flex flex-wrap items-center gap-4">
+                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 sm:gap-4">
                     <button
                       type="button"
                       onClick={() =>
                         router.push(`/customer/movies/${currentHeroMovie.id}`)
                       }
-                      className="flex items-center gap-2 px-7 py-3 rounded-full text-sm font-bold transition-transform hover:scale-[1.03] cursor-pointer"
+                      className="flex items-center gap-2 px-6 sm:px-7 py-3 rounded-full text-sm font-bold transition-transform hover:scale-[1.03] cursor-pointer"
                       style={{ background: "#C0392B", color: "#F5F1E8" }}
                     >
                       <Play size={16} fill="#F5F1E8" />
@@ -564,7 +587,7 @@ export default function MovieSection({
                       onClick={() =>
                         router.push(`/customer/movies/${currentHeroMovie.id}`)
                       }
-                      className="flex items-center gap-2 px-7 py-3 rounded-full border text-sm font-bold transition-colors cursor-pointer hover:bg-white/5"
+                      className="flex items-center gap-2 px-6 sm:px-7 py-3 rounded-full border text-sm font-bold transition-colors cursor-pointer hover:bg-white/5"
                       style={{
                         borderColor: "rgba(255,255,255,0.25)",
                         color: "#F5F1E8",
@@ -578,8 +601,8 @@ export default function MovieSection({
 
                 {/* Next strip */}
                 {featured.length > 1 && (
-                  <div className="flex items-end gap-8 flex-wrap mt-16">
-                    <div className="flex flex-col gap-4 shrink-0">
+                  <div className="flex flex-col md:flex-row md:items-end gap-4 md:gap-8 mt-8 md:mt-16">
+                    <div className="flex flex-row md:flex-col items-center md:items-start justify-between md:justify-start gap-4 shrink-0">
                       <span
                         style={{
                           color: "#F5F1E8",
@@ -594,7 +617,7 @@ export default function MovieSection({
                         <button
                           onClick={goPrevHero}
                           aria-label="Previous movie"
-                          className="flex items-center justify-center w-9 h-9 rounded-full border transition-colors cursor-pointer hover:bg-white/5"
+                          className="flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-full border transition-colors cursor-pointer hover:bg-white/5"
                           style={{
                             borderColor: "rgba(255,255,255,0.2)",
                             color: "#9C97A3",
@@ -605,7 +628,7 @@ export default function MovieSection({
                         <button
                           onClick={goNextHero}
                           aria-label="Next movie"
-                          className="flex items-center justify-center w-9 h-9 rounded-full cursor-pointer transition-transform hover:scale-105"
+                          className="flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-full cursor-pointer transition-transform hover:scale-105"
                           style={{ background: "#C0392B", color: "#F5F1E8" }}
                         >
                           <ChevronRight size={16} />
@@ -614,7 +637,7 @@ export default function MovieSection({
                     </div>
 
                     <div
-                      className="flex items-end gap-5 overflow-x-auto hide-scrollbar pb-2"
+                      className="flex items-end gap-3 md:gap-5 overflow-x-auto hide-scrollbar pt-3 pb-2 w-full md:w-auto min-w-0"
                       style={{ perspective: "1100px" }}
                     >
                       {featured
@@ -628,11 +651,9 @@ export default function MovieSection({
                               key={getId(m, i)}
                               onClick={() => setActiveHeroIndex(i)}
                               aria-label={`Show ${getTitle(m)}`}
-                              className="gallery-card shrink-0 rounded-xl overflow-hidden relative cursor-pointer border border-white/10 bg-black/30 backdrop-blur-sm shadow-[0_12px_28px_-10px_rgba(0,0,0,0.6)]"
+                              className="gallery-card shrink-0 w-[92px] h-[138px] sm:w-[104px] sm:h-[156px] md:w-[116px] md:h-[174px] rounded-xl overflow-hidden relative cursor-pointer border border-white/10 bg-black/30 backdrop-blur-sm shadow-[0_12px_28px_-10px_rgba(0,0,0,0.6)]"
                               style={
                                 {
-                                  width: 116,
-                                  height: 174,
                                   "--fan": `${fan * 10}deg`,
                                   "--depth": `${-Math.abs(fan) * 14}px`,
                                 } as CSSProperties
@@ -828,38 +849,14 @@ export default function MovieSection({
 
         {/* LOADING / ERROR / GRID */}
         {loading ? (
-          <div className="space-y-5 pt-2">
-            <div className="flex items-center gap-2 text-xs text-slate-500 font-bold">
-              <Loader2
-                className="h-4 w-4 animate-spin"
-                style={{ color: "#D9A441" }}
-              />
-              <span>{t("loadingMovies")}</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-              {Array.from({ length: 8 }).map((_, index) => (
-                <div
-                  key={index}
-                  className={`rounded-2xl border overflow-hidden ${
-                    isDark
-                      ? "border-white/10 bg-slate-900/60"
-                      : "border-slate-200 bg-white shadow-sm"
-                  }`}
-                >
-                  <div
-                    className={`aspect-[2/3] w-full animate-pulse ${isDark ? "bg-slate-900" : "bg-slate-100"}`}
-                  />
-                  <div className="p-5 space-y-3">
-                    <div
-                      className={`h-3 w-20 rounded animate-pulse ${isDark ? "bg-slate-800" : "bg-slate-200"}`}
-                    />
-                    <div
-                      className={`h-4 w-3/4 rounded animate-pulse ${isDark ? "bg-slate-800" : "bg-slate-200"}`}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
+          // Skeleton cards removed. A compact spinner keeps the page height
+          // steady so the footer does not jump while movies load.
+          <div className="flex min-h-[320px] items-center justify-center gap-2 text-xs text-slate-500 font-bold">
+            <Loader2
+              className="h-4 w-4 animate-spin"
+              style={{ color: "#D9A441" }}
+            />
+            <span>{t("loadingMovies")}</span>
           </div>
         ) : movieError ? (
           <div
