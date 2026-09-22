@@ -7,6 +7,30 @@ const KEYCLOAK_ISSUER =
 const KEYCLOAK_CLIENT_ID =
   process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || "cinemax-frontend";
 
+// ── Canonical site origin ──────────────────────────────────────────────
+// redirect_uri must be byte-identical between the initial auth request
+// and the later token exchange, and it must exactly match one of the
+// "Valid redirect URIs" registered on the Keycloak client. Building it
+// from window.location.origin is what broke login: if a visitor lands on
+// the bare apex (porsou.store) and clicks a social login button, Keycloak
+// gets redirect_uri=https://porsou.store/..., but Vercel's own apex->www
+// redirect then bounces the browser to a different origin
+// (www.porsou.store) before this page can read the query string —
+// dropping the code/state in the process on some browsers.
+//
+// Pinning this to one fixed value means every login, no matter which
+// domain the visitor started on, always requests and exchanges the same
+// redirect_uri, so there is never a cross-domain hop in the middle of the
+// OAuth flow.
+//
+// Set NEXT_PUBLIC_SITE_URL in Vercel (Production) to your canonical
+// domain, e.g. https://www.porsou.store — no trailing slash. Falls back
+// to window.location.origin only if that variable isn't set (e.g. local
+// dev without a .env.local override), so localhost keeps working.
+const SITE_ORIGIN =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (typeof window !== "undefined" ? window.location.origin : "");
+
 const CODE_VERIFIER_KEY = "kc_code_verifier";
 const POST_LOGIN_REDIRECT_KEY = "kc_post_login_redirect";
 
@@ -35,7 +59,7 @@ function decodeStateString<T>(state: string): T | null {
   }
 }
 
-// ── NEW: open-redirect guard ──────────────────────────────────────────
+// ── open-redirect guard ──────────────────────────────────────────
 // Only allow same-site relative paths ("/account", "/checkout"). Rejects
 // absolute URLs ("https://evil.com") and protocol-relative URLs
 // ("//evil.com") which browsers still treat as external.
@@ -67,8 +91,8 @@ interface StatePayload {
  * cached session) is handled server-side via the "Prompt" field on the
  * Google identity provider in the Keycloak admin console. The prompt=login
  * below is a separate thing — it ignores Keycloak's OWN existing SSO
- * session so login always re-runs through the upstream IdP at all,
- * instead of Keycloak short-circuiting straight back to the app.
+ * session so login always re-runs through the upstream IdP, instead of
+ * Keycloak short-circuiting straight back to the app.
  */
 export async function redirectToKeycloak(
   provider: SocialProvider,
@@ -77,7 +101,6 @@ export async function redirectToKeycloak(
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await generateCodeChallenge(codeVerifier);
 
-  // NEW: sanitize before it ever touches storage or the URL.
   const safeRedirectTo = sanitizeRedirect(redirectTo);
 
   sessionStorage.setItem(CODE_VERIFIER_KEY, codeVerifier);
@@ -99,9 +122,15 @@ export async function redirectToKeycloak(
    *
    * Your folder is: app/(auth)/keycloak/callback/page.tsx
    * "(auth)" is a Next.js route group — it does NOT appear in the URL.
-   * The correct URL is: http://localhost:3000/keycloak/callback
+   * The correct URL is: {SITE_ORIGIN}/keycloak/callback
+   *
+   * This is now built from SITE_ORIGIN, not window.location.origin, so it
+   * is the same value regardless of which domain (apex or www) the
+   * visitor was on when they clicked the button. It must exactly match a
+   * "Valid redirect URI" registered on the cinemax-frontend client in
+   * Keycloak.
    */
-  const redirectUri = `${window.location.origin}/keycloak/callback`;
+  const redirectUri = `${SITE_ORIGIN}/keycloak/callback`;
 
   const params = new URLSearchParams({
     client_id: KEYCLOAK_CLIENT_ID,
@@ -147,7 +176,10 @@ export async function exchangeCodeForToken(
     );
   }
 
-  const redirectUri = `${window.location.origin}/keycloak/callback`;
+  // Must be byte-identical to the redirect_uri sent in the original auth
+  // request above, or Keycloak's token endpoint rejects the exchange —
+  // that's an OAuth/PKCE requirement, not a Keycloak quirk.
+  const redirectUri = `${SITE_ORIGIN}/keycloak/callback`;
 
   const body = new URLSearchParams({
     grant_type: "authorization_code",
@@ -189,8 +221,6 @@ export function consumePostLoginRedirect(state?: string | null): string | null {
   const stored = sessionStorage.getItem(POST_LOGIN_REDIRECT_KEY);
   sessionStorage.removeItem(POST_LOGIN_REDIRECT_KEY);
 
-  // NEW: re-validate on the way out too — defense in depth in case
-  // anything upstream ever changes.
   if (stored) return sanitizeRedirect(stored);
 
   if (state) {
