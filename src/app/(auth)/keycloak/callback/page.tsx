@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 import {
@@ -10,14 +10,29 @@ import {
 import { AuthService } from "@/app/service/auth.service";
 import { useToast } from "@/app/context/ToastContext";
 
-const processedCodes = new Set<string>();
-
 function KeycloakCallbackContent() {
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
   const { addToast } = useToast();
 
+  // Synchronous, per-mount guard. This is checked and flipped BEFORE any
+  // `await`, so a second effect firing (React re-invoking the effect, a
+  // fast re-render, etc.) sees hasRun.current === true immediately and
+  // bails out before it can read searchParams a second time or touch
+  // state at all. The previous version guarded against double-processing
+  // with a module-level Set keyed by the code string, but that check ran
+  // *inside* the async function after the first run had already done
+  // window.history.replaceState() — so a second invocation could read a
+  // now-empty URL, find no code, and throw "No authorization code was
+  // returned", overwriting the first run's in-flight (and successful)
+  // token exchange with a false error. A ref checked synchronously at the
+  // very top closes that window entirely.
+  const hasRun = useRef(false);
+
   useEffect(() => {
+    if (hasRun.current) return;
+    hasRun.current = true;
+
     let cancelled = false;
 
     const handleCallback = async () => {
@@ -38,14 +53,14 @@ function KeycloakCallbackContent() {
           throw new Error("No authorization code was returned by Keycloak.");
         }
 
-        if (processedCodes.has(code)) {
-          return;
-        }
-        processedCodes.add(code);
-
+        // Clear the code/state from the URL immediately so a manual page
+        // refresh, or any stray re-render, can never resubmit the same
+        // one-time-use code to Keycloak's token endpoint.
         window.history.replaceState(null, "", window.location.pathname);
 
         const keycloakAccessToken = await exchangeCodeForToken(code, state);
+
+        if (cancelled) return;
 
         if (!keycloakAccessToken) {
           throw new Error("No access token was returned by Keycloak.");
@@ -54,6 +69,8 @@ function KeycloakCallbackContent() {
         const auth = await AuthService.loginWithKeycloak({
           accessToken: keycloakAccessToken,
         });
+
+        if (cancelled) return;
 
         if (!auth?.accessToken) {
           throw new Error("Backend did not return a valid session.");
@@ -91,7 +108,11 @@ function KeycloakCallbackContent() {
     return () => {
       cancelled = true;
     };
-  }, [searchParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Intentionally empty: this must run exactly once per mount.
+  // Depending on [searchParams] was what allowed a second run in the
+  // first place — the code is only ever read here, at mount time, from
+  // whatever the URL was when the page first loaded.
 
   if (error) {
     return (
@@ -122,6 +143,14 @@ function KeycloakCallbackContent() {
     </div>
   );
 }
+
+// This page handles a one-time-use authorization code and must never be
+// served from Vercel's edge cache or as a static prerendered shell — an
+// earlier check showed this route responding with X-Vercel-Cache: HIT and
+// X-Nextjs-Prerender: 1, which risks a stale shell being reused across
+// requests with different query strings. force-dynamic guarantees a fresh
+// render (and fresh client bundle evaluation) on every request.
+export const dynamic = "force-dynamic";
 
 export default function KeycloakCallbackPage() {
   return (
