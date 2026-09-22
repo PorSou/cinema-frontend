@@ -46,7 +46,7 @@ export const metadata: Metadata = {
   description: SITE_DESCRIPTION,
   applicationName: SITE_NAME,
   keywords: [
-    "CINEMAX",
+    "cinema-sps",
     "cinema",
     "movie tickets",
     "book movie tickets online",
