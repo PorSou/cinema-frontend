@@ -18,8 +18,7 @@ const inter = Inter({
 // SEO / link-preview settings
 // ---------------------------------------------------------------
 // Change this when you get a custom domain (or set NEXT_PUBLIC_SITE_URL on Vercel).
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://cinema-frontend-py8v.vercel.app";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.porsou.store";
 
 const SITE_NAME = "CINEMAX";
 const SITE_TITLE = "CINEMAX - Movie Tickets & Reservations";
@@ -57,6 +56,12 @@ export const metadata: Metadata = {
   ],
   robots: { index: true, follow: true },
 
+  // NEW: tells Google this is the canonical/official URL for the homepage,
+  // avoiding duplicate-content confusion between www / non-www / old vercel URL.
+  alternates: {
+    canonical: "/",
+  },
+
   // Google Search Console ownership verification (renders <meta name="google-site-verification">)
   verification: {
     google: GOOGLE_SITE_VERIFICATION,
@@ -86,6 +91,15 @@ export const metadata: Metadata = {
     title: SITE_TITLE,
     description: SITE_DESCRIPTION,
     images: [OG_IMAGE],
+  },
+
+  // NEW: explicit favicon/app icon references (uses your existing /logo2.png).
+  // If you have a real favicon.ico in /public, Next.js picks it up automatically
+  // and this can be removed — this is just a safe fallback.
+  icons: {
+    icon: "/logo2.png",
+    shortcut: "/logo2.png",
+    apple: "/logo2.png",
   },
 };
 
