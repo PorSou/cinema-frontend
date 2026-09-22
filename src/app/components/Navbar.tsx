@@ -308,9 +308,10 @@ export default function Navbar() {
 
           {/* ==================================================
               DESKTOP NAVIGATION — CENTER COLUMN
+              (was: hidden ... md:flex — tablets now keep the drawer)
           ================================================== */}
 
-          <div className="hidden items-center justify-center gap-8 text-xs font-bold md:flex lg:gap-14">
+          <div className="hidden items-center justify-center gap-8 text-xs font-bold lg:flex lg:gap-14">
             {navItems.map((item) => {
               const active = item.match(pathname);
               const Icon = item.icon;
@@ -339,9 +340,10 @@ export default function Navbar() {
           ================================================== */}
 
           <div className="flex items-center justify-end gap-2">
-            {/* ---------------- DESKTOP ACTIONS ---------------- */}
+            {/* ---------------- DESKTOP ACTIONS ----------------
+                (was: hidden ... md:flex — tablets now keep the drawer) */}
 
-            <div className="hidden items-center gap-2.5 md:flex">
+            <div className="hidden items-center gap-2.5 lg:flex">
               <div
                 className={`flex items-center gap-1 rounded-2xl border p-1 ${
                   isDark
@@ -642,11 +644,12 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* ---------------- MOBILE HAMBURGER ---------------- */}
+            {/* ---------------- MOBILE HAMBURGER ----------------
+                (was: md:hidden — tablets now keep the hamburger) */}
 
             <button
               onClick={() => setMenuOpen(true)}
-              className={`cursor-pointer rounded-xl p-2 transition md:hidden ${
+              className={`cursor-pointer rounded-xl p-2 transition lg:hidden ${
                 isDark
                   ? "text-slate-400 hover:bg-white/[0.06] hover:text-white"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-950"
@@ -663,10 +666,11 @@ export default function Navbar() {
 
       {/* ========================================================
           MOBILE OVERLAY
+          (was: md:hidden — tablets now keep the drawer overlay)
       ======================================================== */}
 
       <div
-        className={`fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm transition-opacity duration-300 md:hidden ${
+        className={`fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm transition-opacity duration-300 lg:hidden ${
           menuOpen
             ? "pointer-events-auto opacity-100"
             : "pointer-events-none opacity-0"
@@ -677,11 +681,12 @@ export default function Navbar() {
 
       {/* ========================================================
           MOBILE DRAWER
+          (was: md:hidden — tablets now keep the drawer)
       ======================================================== */}
 
       <aside
         suppressHydrationWarning
-        className={`fixed right-0 top-0 z-[70] flex h-[100dvh] w-[86%] max-w-sm flex-col overflow-hidden border-l shadow-2xl transition-transform duration-300 ease-out md:hidden ${
+        className={`fixed right-0 top-0 z-[70] flex h-[100dvh] w-[86%] max-w-sm flex-col overflow-hidden border-l shadow-2xl transition-transform duration-300 ease-out lg:hidden ${
           isDark ? "border-white/5 bg-[#0A0C14]" : "border-slate-200 bg-white"
         } ${menuOpen ? "translate-x-0" : "translate-x-full"}`}
         aria-hidden={!menuOpen}

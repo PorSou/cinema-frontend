@@ -885,9 +885,14 @@ export default function MovieSection({
             </button>
           </div>
         ) : filteredMovies.length > 0 ? (
+          /* ------------------------------------------------------------
+             MOBILE: edge-to-edge, larger cards (-mx-4 cancels the parent's
+             px-4 so cards reach the screen edges; gap-4 keeps a compact
+             vertical rhythm since it's a single column here).
+             sm/md/lg: completely unchanged — mx-0, gap-6, multi-column. */
           <div
             ref={gridReveal.ref}
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-2"
+            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 pt-2 -mx-4 sm:mx-0"
           >
             {filteredMovies.map((movie, index) => (
               <Link
@@ -896,7 +901,7 @@ export default function MovieSection({
                 data-aos="fade-up"
                 data-aos-delay={index * 100}
                 data-aos-duration="700"
-                className={`group flex flex-col justify-between rounded-2xl border overflow-hidden shadow-xl hover:-translate-y-1.5 transition-all duration-300 ease-out cursor-pointer ${
+                className={`group flex flex-col justify-between rounded-none sm:rounded-2xl border-y border-x-0 sm:border overflow-hidden shadow-xl hover:-translate-y-1.5 transition-all duration-300 ease-out cursor-pointer ${
                   isDark
                     ? "border-white/10 bg-slate-900/60 hover:border-amber-500/40"
                     : "border-slate-200 bg-white hover:border-amber-500/40"
@@ -927,7 +932,7 @@ export default function MovieSection({
                   />
                   {movie.ageRating && (
                     <span
-                      className="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-[10px] font-black border border-amber-400/30"
+                      className="absolute top-3 right-3 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-md text-xs sm:text-[10px] font-black border border-amber-400/30"
                       style={{ color: "#D9A441" }}
                     >
                       {movie.ageRating}
@@ -950,7 +955,7 @@ export default function MovieSection({
 
                 <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
                   <div className="space-y-1.5">
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1.5 sm:gap-1">
                       {movie.genres?.map((genre: any, genIndex: number) => {
                         const genreName =
                           typeof genre === "string" ? genre : genre?.name;
@@ -959,7 +964,7 @@ export default function MovieSection({
                             key={
                               genre?.id || `${genreName || "genre"}-${genIndex}`
                             }
-                            className="text-[10px] font-black px-2 py-0.5 rounded border border-dashed"
+                            className="text-xs sm:text-[10px] font-black px-2.5 py-1 sm:px-2 sm:py-0.5 rounded border border-dashed"
                             style={{
                               borderColor: "rgba(217,164,65,0.35)",
                               color: "#D9A441",
@@ -971,14 +976,14 @@ export default function MovieSection({
                       })}
                     </div>
                     <h3
-                      className={`text-base font-black transition line-clamp-1 ${isDark ? "text-white" : "text-slate-900"}`}
+                      className={`text-lg sm:text-base font-black transition line-clamp-1 ${isDark ? "text-white" : "text-slate-900"}`}
                     >
                       {movie.title}
                     </h3>
                   </div>
 
                   <div
-                    className={`flex items-center justify-between pt-3 border-t text-xs ${
+                    className={`flex items-center justify-between pt-3 border-t text-sm sm:text-xs ${
                       isDark
                         ? "border-white/5 text-slate-400"
                         : "border-slate-200/60 text-slate-500"
@@ -986,7 +991,7 @@ export default function MovieSection({
                   >
                     <span className="flex items-center gap-1 font-mono font-bold">
                       <Clock
-                        className={`h-3.5 w-3.5 ${isDark ? "text-slate-500" : "text-slate-400"}`}
+                        className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${isDark ? "text-slate-500" : "text-slate-400"}`}
                       />
                       {movie.durationMinutes}m
                     </span>
@@ -999,7 +1004,7 @@ export default function MovieSection({
                           ? t("details")
                           : t("bookNow")}
                       </span>
-                      <ArrowRight className="h-3.5 w-3.5" />
+                      <ArrowRight className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
                     </span>
                   </div>
                 </div>

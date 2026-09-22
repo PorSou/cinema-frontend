@@ -1046,10 +1046,14 @@ export default function CustomerSeatBookingPage({
               </div>
             </div>
 
-            {/* STEP 2: F&B SNACKS SELECTION (FULL IMAGE CARD DESIGN) */}
+            {/* STEP 2: F&B SNACKS SELECTION (FULL IMAGE CARD DESIGN)
+                Mobile: card height is shorter (h-[230px]) than desktop
+                (sm:h-[310px]) so a 2-up grid on a phone isn't an
+                overly tall, mostly-empty rectangle; padding/gap also
+                tighten up on mobile only. sm/md/lg unchanged. */}
             <div style={{ display: activeStep === 2 ? "block" : "none" }}>
               <div
-                className={`rounded-3xl border p-6 sm:p-8 space-y-6 ${cardBg}`}
+                className={`rounded-3xl border p-4 sm:p-8 space-y-4 sm:space-y-6 ${cardBg}`}
               >
                 <div className="flex items-center justify-between border-b pb-4 border-inherit">
                   <div className="flex items-center gap-3">
@@ -1069,20 +1073,19 @@ export default function CustomerSeatBookingPage({
                 </div>
 
                 {concessionItems.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-5">
                     {concessionItems.map((item) => {
                       const qty = selectedFAndB[item.id] || 0;
                       return (
                         <div
                           key={item.id}
-                          className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border transition-all duration-300 ${
+                          className={`group relative flex h-[230px] sm:h-[310px] flex-col justify-between overflow-hidden rounded-2xl border transition-all duration-300 ${
                             qty > 0
                               ? "border-amber-500 ring-2 ring-amber-500/40 shadow-xl shadow-amber-500/20"
                               : isLight
                                 ? "border-slate-200 bg-white hover:border-slate-300 shadow-sm"
                                 : "border-[#232428] bg-[#15161a] hover:border-[#2c2d33] shadow-md"
                           }`}
-                          style={{ height: "310px" }}
                         >
                           {/* Full Background / Cover Image */}
                           <div className="absolute inset-0 w-full h-full overflow-hidden">
@@ -1104,7 +1107,7 @@ export default function CustomerSeatBookingPage({
                           </div>
 
                           {/* Top Badges */}
-                          <div className="relative z-10 p-3 flex items-start justify-between">
+                          <div className="relative z-10 p-2.5 sm:p-3 flex items-start justify-between">
                             <span className="rounded-md bg-black/70 backdrop-blur-md px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-amber-400 border border-white/10">
                               {item.categoryName}
                             </span>
@@ -1114,12 +1117,12 @@ export default function CustomerSeatBookingPage({
                           </div>
 
                           {/* Bottom Content & Controls */}
-                          <div className="relative z-10 p-3.5 space-y-2.5 flex flex-col justify-end">
+                          <div className="relative z-10 p-2.5 sm:p-3.5 space-y-2 sm:space-y-2.5 flex flex-col justify-end">
                             <div>
                               <h3 className="text-xs font-black text-white leading-snug line-clamp-1 drop-shadow-sm">
                                 {item.name}
                               </h3>
-                              <p className="text-[10px] text-slate-300 line-clamp-2 leading-relaxed mt-0.5 drop-shadow-sm">
+                              <p className="text-[10px] text-slate-300 line-clamp-1 sm:line-clamp-2 leading-relaxed mt-0.5 drop-shadow-sm">
                                 {item.description}
                               </p>
                             </div>
@@ -1175,9 +1178,12 @@ export default function CustomerSeatBookingPage({
               </div>
             </div>
 
-            {/* BOTTOM SUMMARY BAR */}
+            {/* BOTTOM SUMMARY BAR
+                Mobile: amount row and CTA button stack vertically and the
+                button goes full-width with a shorter label so the text
+                never wraps/cramps. sm/md/lg: unchanged single row. */}
             <div
-              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-6 rounded-3xl border shadow-2xl backdrop-blur-md ${cardBg}`}
+              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 sm:p-6 rounded-3xl border shadow-2xl backdrop-blur-md ${cardBg}`}
             >
               <div>
                 <p className={`text-xs ${mutedText}`}>
@@ -1194,8 +1200,8 @@ export default function CustomerSeatBookingPage({
                 </p>
               </div>
 
-              <div className="flex items-center gap-6">
-                <div className="text-left sm:text-right">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+                <div className="flex items-center justify-between sm:block sm:text-right">
                   <p className={`text-xs ${mutedText}`}>Total Amount:</p>
                   <p className="font-mono font-black text-amber-500 text-xl">
                     ${calculatedTotal.toFixed(2)} USD
@@ -1216,20 +1222,23 @@ export default function CustomerSeatBookingPage({
                       setActiveStep(2);
                     }}
                     disabled={selectedSeatIds.length === 0}
-                    className="flex items-center gap-2 rounded-2xl bg-amber-500 hover:bg-amber-400 px-7 py-4 text-xs font-black text-slate-950 shadow-lg shadow-amber-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-amber-500 hover:bg-amber-400 px-5 sm:px-7 py-3.5 sm:py-4 text-xs font-black text-slate-950 shadow-lg shadow-amber-500/25 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer whitespace-nowrap"
                   >
-                    <span>Next: Add Snacks (Optional)</span>
-                    <ArrowRight className="h-4 w-4" />
+                    <span className="sm:hidden">Next: Add Snacks</span>
+                    <span className="hidden sm:inline">
+                      Next: Add Snacks (Optional)
+                    </span>
+                    <ArrowRight className="h-4 w-4 shrink-0" />
                   </button>
                 ) : (
                   <button
                     type="button"
                     onClick={handleOpenConfirm}
                     disabled={submitting || selectedSeatIds.length === 0}
-                    className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 px-7 py-4 text-xs font-black text-white shadow-lg shadow-red-600/30 hover:from-red-500 hover:to-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+                    className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-red-600 to-rose-600 px-5 sm:px-7 py-3.5 sm:py-4 text-xs font-black text-white shadow-lg shadow-red-600/30 hover:from-red-500 hover:to-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer whitespace-nowrap"
                   >
                     <span>Proceed to Checkout</span>
-                    <ArrowRight className="h-4 w-4" />
+                    <ArrowRight className="h-4 w-4 shrink-0" />
                   </button>
                 )}
               </div>
