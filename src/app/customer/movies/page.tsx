@@ -284,8 +284,34 @@ export default function MovieSection({
         .hero-glow {
           animation: hero-glow-drift 12s ease-in-out infinite;
         }
+        @keyframes orb-drift-a {
+          0%,
+          100% {
+            transform: translate(0, 0);
+          }
+          50% {
+            transform: translate(8%, 10%);
+          }
+        }
+        @keyframes orb-drift-b {
+          0%,
+          100% {
+            transform: translate(0, 0);
+          }
+          50% {
+            transform: translate(-6%, -8%);
+          }
+        }
+        .orb-drift-a {
+          animation: orb-drift-a 22s ease-in-out infinite alternate;
+        }
+        .orb-drift-b {
+          animation: orb-drift-b 26s ease-in-out infinite alternate;
+        }
         @media (prefers-reduced-motion: reduce) {
           .hero-glow,
+          .orb-drift-a,
+          .orb-drift-b,
           .film-grain {
             animation: none;
           }
@@ -326,7 +352,7 @@ export default function MovieSection({
                 background: "#0A0908",
                 fontFamily: "'Work Sans', sans-serif",
               }}
-              className="relative max-w-[1100px] mx-auto w-full overflow-hidden rounded-[20px] sm:rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.85)] px-5 sm:px-12 py-14 sm:py-20 text-center"
+              className="relative max-w-[1100px] mx-auto w-full overflow-hidden rounded-[20px] sm:rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.85)] min-h-[540px] sm:min-h-[600px] md:min-h-[680px] flex items-center justify-center px-5 sm:px-12 py-10 sm:py-14 text-center"
             >
               <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@400;500;600;700;800&display=swap');`}</style>
 
@@ -367,9 +393,32 @@ export default function MovieSection({
                 }}
               />
 
+              {/* two slow-drifting glow orbs — purely ambient movement,
+                  stays within the dark palette, respects reduced-motion */}
+              <div
+                aria-hidden
+                className="orb-drift-a pointer-events-none absolute w-[420px] h-[420px] rounded-full blur-3xl mix-blend-screen"
+                style={{
+                  background:
+                    "radial-gradient(circle, rgba(217,164,65,0.22), transparent 70%)",
+                  top: "-10%",
+                  left: "-5%",
+                }}
+              />
+              <div
+                aria-hidden
+                className="orb-drift-b pointer-events-none absolute w-[380px] h-[380px] rounded-full blur-3xl mix-blend-screen"
+                style={{
+                  background:
+                    "radial-gradient(circle, rgba(130,120,255,0.18), transparent 70%)",
+                  bottom: "-15%",
+                  right: "0%",
+                }}
+              />
+
               <div
                 ref={heroReveal.ref}
-                className={`reveal-up ${heroReveal.visible ? "is-visible" : ""} relative z-10`}
+                className={`reveal-up ${heroReveal.visible ? "is-visible" : ""} relative z-10 w-full`}
               >
                 <div
                   ref={posterTilt.ref}

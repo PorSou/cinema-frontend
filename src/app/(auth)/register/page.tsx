@@ -34,36 +34,40 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
-  // ---- Turnstile responsive sizing --------------------------------------
-  // Same fix as the Login page: some Android WebViews (Oppo/Realme/Vivo)
-  // mis-measure the container on first paint when using size "flexible",
-  // rendering the widget wider than the card and getting cropped by the
-  // card's overflow-hidden. We measure the real space ourselves and fall
-  // back to the fixed "compact" size when there isn't enough room, then
-  // remount the widget (via key) whenever that measurement changes.
+  // ---- Turnstile Android WebView fix -------------------------------------
+  // Same fix as the Login page: "flexible" size renders fine on every
+  // device, iPhone included — the real bug is that some Android WebViews
+  // (Oppo/Realme/Vivo) report a stale width on the very first paint, so
+  // Cloudflare sizes the iframe wrong and the card's overflow-hidden crops
+  // it. Forcing one remount shortly after mount — plus again on any real
+  // size change — fixes that without changing how the widget looks.
   const turnstileWrapperRef = useRef<HTMLDivElement>(null);
-  const [turnstileSize, setTurnstileSize] = useState<"compact" | "flexible">(
-    "flexible",
-  );
+  const [turnstileKey, setTurnstileKey] = useState(0);
+  const lastTurnstileWidthRef = useRef<number | null>(null);
 
   useEffect(() => {
     const el = turnstileWrapperRef.current;
     if (!el) return;
 
-    const measure = () => {
-      const width = el.offsetWidth;
-      setTurnstileSize(width < 300 ? "compact" : "flexible");
+    const remount = () => setTurnstileKey((k) => k + 1);
+
+    const checkWidth = () => {
+      const width = Math.round(el.offsetWidth);
+      if (
+        lastTurnstileWidthRef.current !== null &&
+        Math.abs(width - lastTurnstileWidthRef.current) > 4
+      ) {
+        remount();
+      }
+      lastTurnstileWidthRef.current = width;
     };
 
-    measure();
+    checkWidth();
 
-    const observer = new ResizeObserver(() => measure());
+    const observer = new ResizeObserver(checkWidth);
     observer.observe(el);
 
-    // Some Android WebViews report a stale width on the very first paint,
-    // before their font/zoom scaling settles — remeasure shortly after
-    // mount to correct for that.
-    const retry = window.setTimeout(measure, 300);
+    const retry = window.setTimeout(remount, 350);
 
     return () => {
       observer.disconnect();
@@ -685,13 +689,13 @@ export default function RegisterPage() {
               className="w-full min-w-0 flex justify-center overflow-x-auto"
             >
               <Turnstile
-                key={turnstileSize}
+                key={turnstileKey}
                 siteKey="0x4AAAAAAEpf88txuioOhN0W"
                 options={{
                   theme: isLight ? "light" : "dark",
-                  size: turnstileSize,
+                  size: "flexible",
                 }}
-                className={turnstileSize === "flexible" ? "w-full" : ""}
+                className="w-full"
                 onSuccess={(token) => {
                   setTurnstileToken(token);
                   clearFieldError("turnstile");
