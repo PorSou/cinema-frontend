@@ -76,7 +76,7 @@ function LoginForm() {
   // doubles as the existing Android WebView stale-width fix: any real width
   // change (first paint settling, size class flip, rotation) triggers one
   // remount so Cloudflare re-renders correctly.
-  const TURNSTILE_MIN_FLEXIBLE_WIDTH = 300;
+  const TURNSTILE_MIN_FLEXIBLE_WIDTH = 280;
 
   const [turnstileSize, setTurnstileSize] = useState<"compact" | "flexible">(
     "flexible",
@@ -347,33 +347,35 @@ function LoginForm() {
   return (
     <div
       className={`
-        min-h-[85vh]
-        flex
-        items-center
-        justify-center
-        py-12
-        px-3
-        sm:px-4
-        transition-colors
-        duration-300
-        overflow-x-hidden
-        ${pageClass}
-      `}
+          min-h-[85vh]
+          flex
+          items-center
+          justify-center
+          py-12
+          px-3
+          sm:px-4
+          transition-colors
+          duration-300
+          overflow-x-hidden
+          ${pageClass}
+        `}
     >
       <div
         className={`
-          w-full
-          max-w-md
-          rounded-[2.5rem]
-          p-8
-          sm:p-10
-          space-y-6
-          transition-all
-          duration-300
-          relative
-          overflow-hidden
-          ${cardClass}
-        `}
+            w-full
+            max-w-md
+            rounded-[2.5rem]
+            px-5
+            py-8
+            sm:px-10
+            sm:py-10
+            space-y-6
+            transition-all
+            duration-300
+            relative
+            overflow-hidden
+            ${cardClass}
+          `}
       >
         {/* Subtle top ambient glow */}
         <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-500/15 rounded-full blur-3xl pointer-events-none" />
@@ -389,24 +391,24 @@ function LoginForm() {
 
           <h1
             className={`
-              text-2xl
-              font-black
-              tracking-tight
-              transition-colors
-              duration-300
-              ${titleClass}
-            `}
+                text-2xl
+                font-black
+                tracking-tight
+                transition-colors
+                duration-300
+                ${titleClass}
+              `}
           >
             {t("login.title")}
           </h1>
 
           <p
             className={`
-              text-xs
-              transition-colors
-              duration-300
-              ${descriptionClass}
-            `}
+                text-xs
+                transition-colors
+                duration-300
+                ${descriptionClass}
+              `}
           >
             {t("login.subtitle")}
           </p>
@@ -465,14 +467,14 @@ function LoginForm() {
           <div>
             <label
               className={`
-                block
-                mb-1.5
-                font-semibold
-                tracking-wide
-                transition-colors
-                duration-300
-                ${labelClass}
-              `}
+                  block
+                  mb-1.5
+                  font-semibold
+                  tracking-wide
+                  transition-colors
+                  duration-300
+                  ${labelClass}
+                `}
             >
               {t("login.email")} <span className="text-amber-500">*</span>
             </label>
@@ -480,16 +482,16 @@ function LoginForm() {
             <div className="relative">
               <Mail
                 className={`
-                  absolute
-                  left-4
-                  top-1/2
-                  -translate-y-1/2
-                  h-4
-                  w-4
-                  transition-colors
-                  duration-300
-                  ${iconClass}
-                `}
+                    absolute
+                    left-4
+                    top-1/2
+                    -translate-y-1/2
+                    h-4
+                    w-4
+                    transition-colors
+                    duration-300
+                    ${iconClass}
+                  `}
               />
 
               <input
@@ -511,20 +513,20 @@ function LoginForm() {
                 }}
                 placeholder={t("login.emailPlaceholder")}
                 className={`
-                  w-full
-                  rounded-2xl
-                  border
-                  py-3.5
-                  pl-11
-                  pr-4
-                  outline-none
-                  transition-all
-                  duration-300
-                  disabled:opacity-50
-                  disabled:cursor-not-allowed
-                  ${inputClass}
-                  ${errors.email ? "border-red-500" : ""}
-                `}
+                    w-full
+                    rounded-2xl
+                    border
+                    py-3.5
+                    pl-11
+                    pr-4
+                    outline-none
+                    transition-all
+                    duration-300
+                    disabled:opacity-50
+                    disabled:cursor-not-allowed
+                    ${inputClass}
+                    ${errors.email ? "border-red-500" : ""}
+                  `}
               />
             </div>
 
@@ -540,13 +542,13 @@ function LoginForm() {
             <div className="mb-1.5 flex items-center justify-between">
               <label
                 className={`
-                  block
-                  font-semibold
-                  tracking-wide
-                  transition-colors
-                  duration-300
-                  ${labelClass}
-                `}
+                    block
+                    font-semibold
+                    tracking-wide
+                    transition-colors
+                    duration-300
+                    ${labelClass}
+                  `}
               >
                 {t("login.password")} <span className="text-amber-500">*</span>
               </label>
@@ -562,16 +564,16 @@ function LoginForm() {
             <div className="relative">
               <Lock
                 className={`
-                  absolute
-                  left-4
-                  top-1/2
-                  -translate-y-1/2
-                  h-4
-                  w-4
-                  transition-colors
-                  duration-300
-                  ${iconClass}
-                `}
+                    absolute
+                    left-4
+                    top-1/2
+                    -translate-y-1/2
+                    h-4
+                    w-4
+                    transition-colors
+                    duration-300
+                    ${iconClass}
+                  `}
               />
 
               <input
@@ -593,20 +595,20 @@ function LoginForm() {
                 }}
                 placeholder={t("login.passwordPlaceholder")}
                 className={`
-                  w-full
-                  rounded-2xl
-                  border
-                  py-3.5
-                  pl-11
-                  pr-11
-                  outline-none
-                  transition-all
-                  duration-300
-                  disabled:opacity-50
-                  disabled:cursor-not-allowed
-                  ${inputClass}
-                  ${errors.password ? "border-red-500" : ""}
-                `}
+                    w-full
+                    rounded-2xl
+                    border
+                    py-3.5
+                    pl-11
+                    pr-11
+                    outline-none
+                    transition-all
+                    duration-300
+                    disabled:opacity-50
+                    disabled:cursor-not-allowed
+                    ${inputClass}
+                    ${errors.password ? "border-red-500" : ""}
+                  `}
               />
 
               <button
@@ -615,14 +617,14 @@ function LoginForm() {
                 tabIndex={-1}
                 disabled={isLocked || loading}
                 className={`
-                  absolute
-                  right-4
-                  top-1/2
-                  -translate-y-1/2
-                  transition-colors
-                  disabled:opacity-50
-                  ${passwordButtonClass}
-                `}
+                    absolute
+                    right-4
+                    top-1/2
+                    -translate-y-1/2
+                    transition-colors
+                    disabled:opacity-50
+                    ${passwordButtonClass}
+                  `}
                 aria-label={showPassword ? "Hide password" : "Show password"}
               >
                 {showPassword ? (
@@ -641,10 +643,10 @@ function LoginForm() {
           </div>
 
           {/* TURNSTILE — "compact" below sm (phones: iPhone, Oppo/Realme/
-              Vivo, etc.) avoids Cloudflare's ~300px "flexible" floor
-              clipping the card's rounded corners; "flexible" is restored
-              from sm: up so web/desktop is unchanged. overflow-x-auto stays
-              as a safety net so nothing is ever silently cropped. */}
+                Vivo, etc.) avoids Cloudflare's ~300px "flexible" floor
+                clipping the card's rounded corners; "flexible" is restored
+                from sm: up so web/desktop is unchanged. overflow-x-auto stays
+                as a safety net so nothing is ever silently cropped. */}
           <div className="my-4 w-full flex justify-center">
             <div
               ref={turnstileWrapperRef}
@@ -691,31 +693,31 @@ function LoginForm() {
             type="submit"
             disabled={loading || isLocked}
             className="
-              flex
-              w-full
-              items-center
-              justify-center
-              gap-2
-              rounded-2xl
-              bg-gradient-to-r
-              from-amber-500
-              to-red-600
-              py-4
-              text-xs
-              font-extrabold
-              uppercase
-              tracking-wider
-              text-slate-950
-              shadow-[0_0_25px_rgba(245,158,11,0.4)]
-              hover:from-amber-400
-              hover:to-red-500
-              hover:shadow-[0_0_35px_rgba(245,158,11,0.6)]
-              disabled:opacity-50
-              transition-all
-              duration-300
-              cursor-pointer
-              disabled:cursor-not-allowed
-            "
+                flex
+                w-full
+                items-center
+                justify-center
+                gap-2
+                rounded-2xl
+                bg-gradient-to-r
+                from-amber-500
+                to-red-600
+                py-4
+                text-xs
+                font-extrabold
+                uppercase
+                tracking-wider
+                text-slate-950
+                shadow-[0_0_25px_rgba(245,158,11,0.4)]
+                hover:from-amber-400
+                hover:to-red-500
+                hover:shadow-[0_0_35px_rgba(245,158,11,0.6)]
+                disabled:opacity-50
+                transition-all
+                duration-300
+                cursor-pointer
+                disabled:cursor-not-allowed
+              "
           >
             {loading && (
               <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
@@ -756,14 +758,14 @@ function LoginForm() {
         {/* FOOTER */}
         <p
           className={`
-            text-center
-            text-xs
-            transition-colors
-            duration-300
-            relative
-            z-10
-            ${footerTextClass}
-          `}
+              text-center
+              text-xs
+              transition-colors
+              duration-300
+              relative
+              z-10
+              ${footerTextClass}
+            `}
         >
           {t("login.noAccount")}{" "}
           <Link
