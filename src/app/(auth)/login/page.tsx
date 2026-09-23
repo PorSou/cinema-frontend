@@ -67,34 +67,20 @@ function LoginForm() {
 
   // ---- Turnstile responsive size ------------------------------------------
   // "flexible" has a hidden internal minimum width (~300px) enforced by
-  // Cloudflare's iframe. On phones, the card's actual inner content width
-  // (viewport - page padding - card padding) is often narrower than that
-  // (~279px on a 375px-wide iPhone), so the widget overflows its container
-  // and both left/right rounded corners get visually clipped by the card's
-  // overflow-hidden. Below the sm breakpoint we switch to "compact", which
-  // has a small fixed footprint that fits comfortably. From sm: up
-  // (tablet/desktop web) we keep "flexible" exactly as before.
+  // Cloudflare's iframe. Rather than guessing by viewport size (which was
+  // switching to "compact" even on phones that had plenty of room, once the
+  // card padding below was trimmed), we measure the ACTUAL rendered width of
+  // the wrapper — set by CSS layout ("w-full"), independent of whatever the
+  // Turnstile iframe itself wants to be — and only fall back to "compact"
+  // when that measured width genuinely can't fit "flexible". This also
+  // doubles as the existing Android WebView stale-width fix: any real width
+  // change (first paint settling, size class flip, rotation) triggers one
+  // remount so Cloudflare re-renders correctly.
+  const TURNSTILE_MIN_FLEXIBLE_WIDTH = 300;
+
   const [turnstileSize, setTurnstileSize] = useState<"compact" | "flexible">(
     "flexible",
   );
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
-
-    const applySize = () => {
-      const nextSize = mq.matches ? "compact" : "flexible";
-      setTurnstileSize((current) => {
-        if (current !== nextSize) {
-          setTurnstileKey((k) => k + 1); // force remount so Cloudflare re-renders at new size
-        }
-        return nextSize;
-      });
-    };
-
-    applySize();
-    mq.addEventListener("change", applySize);
-    return () => mq.removeEventListener("change", applySize);
-  }, []);
 
   useEffect(() => {
     const el = turnstileWrapperRef.current;
@@ -104,12 +90,29 @@ function LoginForm() {
 
     const checkWidth = () => {
       const width = Math.round(el.offsetWidth);
-      if (
+
+      const desiredSize: "compact" | "flexible" =
+        width > 0 && width < TURNSTILE_MIN_FLEXIBLE_WIDTH
+          ? "compact"
+          : "flexible";
+
+      let sizeChanged = false;
+      setTurnstileSize((current) => {
+        if (current !== desiredSize) {
+          sizeChanged = true;
+          return desiredSize;
+        }
+        return current;
+      });
+
+      const widthChanged =
         lastTurnstileWidthRef.current !== null &&
-        Math.abs(width - lastTurnstileWidthRef.current) > 4
-      ) {
+        Math.abs(width - lastTurnstileWidthRef.current) > 4;
+
+      if (sizeChanged || widthChanged) {
         remount();
       }
+
       lastTurnstileWidthRef.current = width;
     };
 
@@ -349,7 +352,8 @@ function LoginForm() {
         items-center
         justify-center
         py-12
-        px-4
+        px-3
+        sm:px-4
         transition-colors
         duration-300
         overflow-x-hidden
