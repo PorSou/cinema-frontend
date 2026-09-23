@@ -60,10 +60,41 @@ function LoginForm() {
   // sizes the iframe for the wrong width and the card's overflow-hidden
   // (used for the glow effect) crops it. Forcing one remount shortly after
   // mount — plus again on any real size change — makes it recompute
-  // against the true, settled width. Size stays "flexible" throughout.
+  // against the true, settled width.
   const turnstileWrapperRef = useRef<HTMLDivElement>(null);
   const [turnstileKey, setTurnstileKey] = useState(0);
   const lastTurnstileWidthRef = useRef<number | null>(null);
+
+  // ---- Turnstile responsive size ------------------------------------------
+  // "flexible" has a hidden internal minimum width (~300px) enforced by
+  // Cloudflare's iframe. On phones, the card's actual inner content width
+  // (viewport - page padding - card padding) is often narrower than that
+  // (~279px on a 375px-wide iPhone), so the widget overflows its container
+  // and both left/right rounded corners get visually clipped by the card's
+  // overflow-hidden. Below the sm breakpoint we switch to "compact", which
+  // has a small fixed footprint that fits comfortably. From sm: up
+  // (tablet/desktop web) we keep "flexible" exactly as before.
+  const [turnstileSize, setTurnstileSize] = useState<"compact" | "flexible">(
+    "flexible",
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+
+    const applySize = () => {
+      const nextSize = mq.matches ? "compact" : "flexible";
+      setTurnstileSize((current) => {
+        if (current !== nextSize) {
+          setTurnstileKey((k) => k + 1); // force remount so Cloudflare re-renders at new size
+        }
+        return nextSize;
+      });
+    };
+
+    applySize();
+    mq.addEventListener("change", applySize);
+    return () => mq.removeEventListener("change", applySize);
+  }, []);
 
   useEffect(() => {
     const el = turnstileWrapperRef.current;
@@ -605,16 +636,15 @@ function LoginForm() {
             )}
           </div>
 
-          {/* TURNSTILE — measured width decides compact vs flexible size,
-              plus an overflow-x-auto safety net so nothing is ever
-              silently clipped by the card's overflow-hidden.
-              max-w-[300px] mx-auto below is the ONLY change: it renders
-              the widget a bit narrower than full card width while still
-              staying centered and using the "flexible" size. */}
-          <div className="my-4 w-full">
+          {/* TURNSTILE — "compact" below sm (phones: iPhone, Oppo/Realme/
+              Vivo, etc.) avoids Cloudflare's ~300px "flexible" floor
+              clipping the card's rounded corners; "flexible" is restored
+              from sm: up so web/desktop is unchanged. overflow-x-auto stays
+              as a safety net so nothing is ever silently cropped. */}
+          <div className="my-4 w-full flex justify-center">
             <div
               ref={turnstileWrapperRef}
-              className="turnstile-scroll w-full max-w-[300px] mx-auto min-w-0 flex justify-center overflow-x-auto"
+              className="turnstile-scroll w-full min-w-0 flex justify-center overflow-x-auto"
             >
               <style jsx>{`
                 .turnstile-scroll::-webkit-scrollbar {
@@ -631,9 +661,9 @@ function LoginForm() {
                 siteKey="0x4AAAAAAEpf88txuioOhN0W"
                 options={{
                   theme: isLight ? "light" : "dark",
-                  size: "flexible",
+                  size: turnstileSize,
                 }}
-                className="w-full"
+                className={turnstileSize === "flexible" ? "w-full" : ""}
                 onSuccess={(token) => {
                   setTurnstileToken(token);
                   setErrors((prev) => ({
