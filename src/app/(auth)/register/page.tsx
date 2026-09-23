@@ -15,7 +15,7 @@ import {
   CheckCircle2,
   ArrowRight,
 } from "lucide-react";
-import { Turnstile } from "@marsidev/react-turnstile";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 
 import { AuthService } from "@/app/service/auth.service";
 import { useSettings } from "@/app/context/SettingsContext";
@@ -34,72 +34,43 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
-  // ---- Turnstile Android WebView fix -------------------------------------
-  // Same fix as the Login page: "flexible" size renders fine on every
-  // device, iPhone included — the real bug is that some Android WebViews
-  // (Oppo/Realme/Vivo) report a stale width on the very first paint, so
-  // Cloudflare sizes the iframe wrong and the card's overflow-hidden crops
-  // it. Forcing one remount shortly after mount — plus again on any real
-  // size change — fixes that without changing how the widget looks.
+  const turnstileRef = useRef<TurnstileInstance>(null);
   const turnstileWrapperRef = useRef<HTMLDivElement>(null);
   const [turnstileKey, setTurnstileKey] = useState(0);
   const lastTurnstileWidthRef = useRef<number | null>(null);
-
-  // ---- Turnstile responsive size ------------------------------------------
-  // "flexible" has a hidden internal minimum width (~300px) enforced by
-  // Cloudflare's iframe. On phones, the card's actual inner content width
-  // (viewport - page padding - card padding) is often narrower than that
-  // (~279px on a 375px-wide iPhone), so the widget overflows its container
-  // and both left/right rounded corners get visually clipped by the card's
-  // overflow-hidden. Below the sm breakpoint we switch to "compact", which
-  // has a small fixed footprint that fits comfortably. From sm: up
-  // (tablet/desktop web) we keep "flexible" exactly as before.
+  const TURNSTILE_MIN_FLEXIBLE_WIDTH = 300;
   const [turnstileSize, setTurnstileSize] = useState<"compact" | "flexible">(
     "flexible",
   );
 
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 639px)");
-
-    const applySize = () => {
-      const nextSize = mq.matches ? "compact" : "flexible";
-      setTurnstileSize((current) => {
-        if (current !== nextSize) {
-          setTurnstileKey((k) => k + 1); // force remount so Cloudflare re-renders at new size
-        }
-        return nextSize;
-      });
-    };
-
-    applySize();
-    mq.addEventListener("change", applySize);
-    return () => mq.removeEventListener("change", applySize);
-  }, []);
-
-  useEffect(() => {
     const el = turnstileWrapperRef.current;
     if (!el) return;
-
     const remount = () => setTurnstileKey((k) => k + 1);
-
     const checkWidth = () => {
       const width = Math.round(el.offsetWidth);
-      if (
+      const desired =
+        width > 0 && width < TURNSTILE_MIN_FLEXIBLE_WIDTH
+          ? "compact"
+          : "flexible";
+      let sizeChanged = false;
+      setTurnstileSize((c) => {
+        if (c !== desired) {
+          sizeChanged = true;
+          return desired;
+        }
+        return c;
+      });
+      const widthChanged =
         lastTurnstileWidthRef.current !== null &&
-        Math.abs(width - lastTurnstileWidthRef.current) > 4
-      ) {
-        remount();
-      }
+        Math.abs(width - lastTurnstileWidthRef.current) > 4;
+      if (sizeChanged || widthChanged) remount();
       lastTurnstileWidthRef.current = width;
     };
-
     checkWidth();
-
     const observer = new ResizeObserver(checkWidth);
     observer.observe(el);
-
     const retry = window.setTimeout(remount, 350);
-
     return () => {
       observer.disconnect();
       window.clearTimeout(retry);
@@ -339,8 +310,10 @@ export default function RegisterPage() {
           w-full
           max-w-md
           rounded-[2.5rem]
-          p-8
-          sm:p-10
+          px-5
+          py-8
+          sm:px-10
+          sm:py-10
           space-y-6
           transition-all
           duration-300
@@ -732,6 +705,7 @@ export default function RegisterPage() {
               `}</style>
               <Turnstile
                 key={turnstileKey}
+                ref={turnstileRef}
                 siteKey="0x4AAAAAAEpf88txuioOhN0W"
                 options={{
                   theme: isLight ? "light" : "dark",
