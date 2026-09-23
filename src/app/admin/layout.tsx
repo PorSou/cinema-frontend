@@ -517,20 +517,24 @@ export default function AdminLayout({
                         href={item.href}
                         onClick={() => setSidebarOpen(false)}
                         title={isCollapsed ? item.label : undefined}
-                        className={`group flex items-center justify-between rounded-2xl px-3.5 py-2.5 text-xs font-bold transition-all duration-200 relative ${
+                        className={`group flex items-center justify-between rounded-2xl px-3.5 py-2.5 text-xs font-bold transition-all duration-500 ease-out relative overflow-hidden ${
                           isActive
-                            ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-lg shadow-red-600/30 scale-[1.02]"
-                            : hoverItemClass
+                            ? "bg-gradient-to-r from-teal-600 to-emerald-600 text-white shadow-lg shadow-emerald-600/40 scale-[1.02]"
+                            : `${hoverItemClass} hover:scale-[1.01] active:scale-[0.98]`
                         }`}
                       >
-                        <div className="flex items-center gap-3 min-w-0">
+                        {isActive && (
+                          <span className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent animate-pulse" />
+                        )}
+
+                        <div className="flex items-center gap-3 min-w-0 relative z-10">
                           <Icon
-                            className={`h-4 w-4 shrink-0 transition-all duration-200 group-hover:scale-110 ${
+                            className={`h-4 w-4 shrink-0 transition-all duration-300 ease-out ${
                               isActive
-                                ? "text-white"
+                                ? "text-white scale-110"
                                 : isLight
-                                  ? "text-slate-500 group-hover:text-red-600"
-                                  : "text-slate-400 group-hover:text-red-400"
+                                  ? "text-slate-500 group-hover:text-red-600 group-hover:scale-110"
+                                  : "text-slate-400 group-hover:text-red-400 group-hover:scale-110"
                             }`}
                           />
                           {!isCollapsed && (
@@ -540,7 +544,7 @@ export default function AdminLayout({
                           )}
                         </div>
                         {!isCollapsed && isActive && (
-                          <ChevronRight className="h-3.5 w-3.5 text-white/90 shrink-0" />
+                          <ChevronRight className="h-3.5 w-3.5 text-white/90 shrink-0 relative z-10 animate-in slide-in-from-left-1 duration-300" />
                         )}
                       </Link>
                     );
