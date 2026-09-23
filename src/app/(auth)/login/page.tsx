@@ -607,11 +607,14 @@ function LoginForm() {
 
           {/* TURNSTILE — measured width decides compact vs flexible size,
               plus an overflow-x-auto safety net so nothing is ever
-              silently clipped by the card's overflow-hidden. */}
+              silently clipped by the card's overflow-hidden.
+              max-w-[300px] mx-auto below is the ONLY change: it renders
+              the widget a bit narrower than full card width while still
+              staying centered and using the "flexible" size. */}
           <div className="my-4 w-full">
             <div
               ref={turnstileWrapperRef}
-              className="turnstile-scroll w-full min-w-0 flex justify-center overflow-x-auto"
+              className="turnstile-scroll w-full max-w-[300px] mx-auto min-w-0 flex justify-center overflow-x-auto"
             >
               <style jsx>{`
                 .turnstile-scroll::-webkit-scrollbar {
