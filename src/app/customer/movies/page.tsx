@@ -272,89 +272,20 @@ export default function MovieSection({
             transform 0.4s cubic-bezier(0.22, 1, 0.36, 1),
             width 0.4s cubic-bezier(0.22, 1, 0.36, 1);
         }
-        @keyframes backdrop-kenburns {
-          0% {
-            transform: scale(1) translate(0, 0);
-          }
-          100% {
-            transform: scale(1.1) translate(-1.5%, -1%);
-          }
-        }
-        .backdrop-kenburns {
-          animation: backdrop-kenburns 20s ease-in-out infinite alternate;
-        }
         @keyframes hero-glow-drift {
           0%,
           100% {
-            transform: translate(0, 0) scale(1);
+            transform: translate(-50%, -50%) scale(1);
           }
           50% {
-            transform: translate(-6%, 8%) scale(1.15);
+            transform: translate(-50%, -50%) scale(1.12);
           }
         }
         .hero-glow {
           animation: hero-glow-drift 12s ease-in-out infinite;
         }
-        @keyframes light-sweep {
-          0% {
-            transform: translateX(-40%) skewX(-18deg);
-            opacity: 0;
-          }
-          8% {
-            opacity: 0.55;
-          }
-          30% {
-            opacity: 0;
-          }
-          100% {
-            transform: translateX(220%) skewX(-18deg);
-            opacity: 0;
-          }
-        }
-        .light-sweep {
-          animation: light-sweep 7s ease-in-out infinite;
-        }
-        @keyframes bulb-chase {
-          0%,
-          100% {
-            opacity: 0.22;
-            box-shadow: 0 0 0 0 currentColor;
-          }
-          50% {
-            opacity: 1;
-            box-shadow: 0 0 7px 1.5px currentColor;
-          }
-        }
-        .bulb {
-          animation: bulb-chase 2.6s ease-in-out infinite;
-        }
-        .gallery-card {
-          transform: rotateY(var(--fan, 0deg)) translateZ(var(--depth, 0px));
-          transition:
-            transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
-            box-shadow 0.4s ease;
-        }
-        .gallery-card:hover {
-          transform: rotateY(0deg) translateY(-10px) translateZ(40px)
-            scale(1.06);
-          box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.7);
-          z-index: 20;
-        }
-        /* Phones: lay the thumbnails flat (no 3D fan) so nothing is cropped
-           by the horizontal scroller, and respect reduced-motion. */
-        @media (max-width: 767px) {
-          .gallery-card {
-            transform: none;
-          }
-          .gallery-card:hover {
-            transform: translateY(-4px);
-          }
-        }
         @media (prefers-reduced-motion: reduce) {
-          .backdrop-kenburns,
           .hero-glow,
-          .light-sweep,
-          .bulb,
           .film-grain {
             animation: none;
           }
@@ -368,9 +299,12 @@ export default function MovieSection({
       />
 
       {/* ============================
-          HERO — full-bleed backdrop, left-aligned copy, "Next" strip
-          Mobile: poster on top, copy centred beneath, thumbnails scroll below.
-          md and up: unchanged desktop layout (poster floats on the right).
+          HERO — Concept B: centered marquee, no side poster.
+          Copy sits centered over a soft ambient glow; the movie's own
+          poster is only used as a heavily blurred, dimmed backdrop layer
+          (purely atmospheric). The thumbnail strip below uses the real
+          poster images at object-cover with no blur/scale duplication, so
+          they stay sharp instead of looking soft.
       ============================ */}
       {selectedTab === "NOW_SHOWING" &&
         !searchQuery &&
@@ -381,16 +315,6 @@ export default function MovieSection({
             className="relative px-3 sm:px-6 md:px-10 pt-4 sm:pt-6 pb-10 md:pb-14"
             style={{ background: "#050505" }}
           >
-            {/* ambient red glow bleeding out from beneath the rounded card */}
-            <div
-              aria-hidden
-              className="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-0 w-[65%] h-32 rounded-full blur-3xl"
-              style={{
-                background:
-                  "radial-gradient(ellipse at center, rgba(192,57,43,0.55), transparent 72%)",
-              }}
-            />
-
             <div
               onMouseEnter={() => setPaused(true)}
               onMouseLeave={() => setPaused(false)}
@@ -402,123 +326,59 @@ export default function MovieSection({
                 background: "#0A0908",
                 fontFamily: "'Work Sans', sans-serif",
               }}
-              className="relative max-w-[1600px] mx-auto w-full md:min-h-[640px] overflow-hidden rounded-[20px] sm:rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.85)]"
+              className="relative max-w-[1100px] mx-auto w-full overflow-hidden rounded-[20px] sm:rounded-[28px] shadow-[0_30px_80px_-20px_rgba(0,0,0,0.85)] px-5 sm:px-12 py-14 sm:py-20 text-center"
             >
               <style>{`@import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Work+Sans:wght@400;500;600;700;800&display=swap');`}</style>
 
-              {/* backdrop — one consistent cinematic background, not tied to
-                  any single movie's art, so it never crops or distorts */}
-              <div className="absolute inset-0 overflow-hidden">
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      "radial-gradient(130% 100% at 82% 0%, #1C1533 0%, #100D18 42%, #0A0908 68%, #050405 100%)",
-                  }}
-                />
-
-                {/* soft light spilling in from the top right, like a projector beam */}
-                <div
-                  aria-hidden
-                  className="pointer-events-none absolute -top-1/4 right-[4%] w-[50%] h-[75%] rounded-full blur-3xl opacity-40"
-                  style={{
-                    background:
-                      "radial-gradient(circle, rgba(130,120,255,0.35), transparent 70%)",
-                  }}
-                />
-
-                {/* faint ambient tint, hue tied to scroll position */}
-                <div
-                  aria-hidden
-                  className="hero-glow pointer-events-none absolute -top-1/3 right-0 w-2/3 h-2/3 rounded-full blur-3xl opacity-10"
-                  style={{
-                    background:
-                      "radial-gradient(circle, hsla(var(--scene-hue), 65%, 50%, 0.5), transparent 70%)",
-                  }}
-                />
-
-                {/* a soft streak of light glides across the panel on a loop —
-                    the "watch it again" glint */}
-                <div
-                  aria-hidden
-                  className="light-sweep pointer-events-none absolute top-0 left-0 h-full w-1/4"
-                  style={{
-                    background:
-                      "linear-gradient(90deg, transparent, rgba(245,241,232,0.22), transparent)",
-                    mixBlendMode: "screen",
-                  }}
-                />
-              </div>
-
-              {/* the movie's own poster — shown in full, never cropped, as a
-                  framed card over the ambient backdrop above.
-                  Phones: sits in the normal flow, centred at the top.
-                  md+: floats on the right exactly like before. */}
+              {/* atmospheric backdrop — intentionally blurred, never the
+                  image the viewer is meant to look at closely */}
               {heroPoster ? (
-                <div className="relative z-10 flex justify-center px-6 pt-8 sm:pt-10 md:pt-0 md:px-0 md:absolute md:inset-y-10 md:right-14 md:items-center md:justify-end md:max-w-[36%] lg:max-w-[32%]">
+                <div className="absolute inset-0 overflow-hidden" aria-hidden>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     key={currentHeroMovie?.id ?? activeHeroIndex}
                     src={heroPoster}
-                    alt={getTitle(currentHeroMovie)}
-                    className="backdrop-kenburns h-[280px] sm:h-[360px] md:h-full w-auto max-w-full object-contain rounded-2xl shadow-[0_25px_70px_-15px_rgba(0,0,0,0.85)] ring-1 ring-white/10"
+                    alt=""
+                    className="w-full h-full object-cover scale-125 blur-2xl opacity-25"
+                  />
+                  <div
+                    className="absolute inset-0"
+                    style={{
+                      background:
+                        "radial-gradient(120% 100% at 50% 0%, rgba(10,9,8,0.4) 0%, #0A0908 75%)",
+                    }}
                   />
                 </div>
               ) : (
-                <div className="relative z-10 mx-auto mt-8 sm:mt-10 md:mt-0 h-[280px] w-[187px] sm:h-[360px] sm:w-[240px] md:h-auto md:w-[26%] md:absolute md:inset-y-10 md:right-14 md:mx-0 rounded-2xl overflow-hidden shadow-[0_25px_70px_-15px_rgba(0,0,0,0.85)] ring-1 ring-white/10">
-                  <div
-                    className="w-full h-full"
-                    style={{ background: heroAccent }}
-                  />
-                </div>
+                <div
+                  className="absolute inset-0"
+                  style={{ background: heroAccent }}
+                  aria-hidden
+                />
               )}
 
-              {/* marquee bulb chase — frames the panel like theatre signage,
-                  lights travelling the border on a loop */}
-              <div className="pointer-events-none absolute inset-x-6 top-3 z-30 hidden sm:flex justify-between sm:inset-x-10">
-                {Array.from({ length: 26 }).map((_, i) => (
-                  <span
-                    key={`bulb-top-${i}`}
-                    className="bulb rounded-full"
-                    style={{
-                      width: 5,
-                      height: 5,
-                      background: i % 2 === 0 ? "#D9A441" : "#C0392B",
-                      color: i % 2 === 0 ? "#D9A441" : "#C0392B",
-                      animationDelay: `${i * 0.09}s`,
-                    }}
-                  />
-                ))}
-              </div>
-              <div className="pointer-events-none absolute inset-x-6 bottom-3 z-30 hidden sm:flex justify-between sm:inset-x-10">
-                {Array.from({ length: 26 }).map((_, i) => (
-                  <span
-                    key={`bulb-bottom-${i}`}
-                    className="bulb rounded-full"
-                    style={{
-                      width: 5,
-                      height: 5,
-                      background: i % 2 === 0 ? "#C0392B" : "#D9A441",
-                      color: i % 2 === 0 ? "#C0392B" : "#D9A441",
-                      animationDelay: `${i * 0.09 + 1.2}s`,
-                    }}
-                  />
-                ))}
-              </div>
+              {/* soft ambient glow, hue tied to scroll position */}
+              <div
+                aria-hidden
+                className="hero-glow pointer-events-none absolute left-1/2 top-1/2 w-[130%] h-[130%] rounded-full blur-3xl opacity-25"
+                style={{
+                  background:
+                    "radial-gradient(circle, hsla(var(--scene-hue), 65%, 50%, 0.55), transparent 65%)",
+                }}
+              />
 
               <div
                 ref={heroReveal.ref}
-                className={`reveal-up ${heroReveal.visible ? "is-visible" : ""} relative z-10 max-w-7xl mx-auto px-5 sm:px-10 md:px-16 pt-6 sm:pt-8 md:pt-28 pb-8 sm:pb-10 md:min-h-[680px] flex flex-col justify-between`}
+                className={`reveal-up ${heroReveal.visible ? "is-visible" : ""} relative z-10`}
               >
-                {/* Copy block */}
                 <div
                   ref={posterTilt.ref}
                   onMouseMove={posterTilt.onMouseMove}
                   onMouseLeave={posterTilt.onMouseLeave}
                   style={posterTilt.style}
-                  className="max-w-xl mx-auto md:mx-0 text-center md:text-left"
+                  className="max-w-xl mx-auto"
                 >
-                  <div className="flex items-center justify-center md:justify-start gap-1 mb-4 md:mb-5">
+                  <div className="flex items-center justify-center gap-1 mb-5">
                     {Array.from({ length: 5 }).map((_, i) => (
                       <Star
                         key={i}
@@ -529,16 +389,35 @@ export default function MovieSection({
                     ))}
                   </div>
 
+                  <div
+                    className="inline-flex items-center gap-2 px-3 py-1 rounded-full mb-5"
+                    style={{
+                      background: "rgba(217,164,65,0.12)",
+                      border: "1px solid rgba(217,164,65,0.3)",
+                    }}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full"
+                      style={{ background: "#D9A441" }}
+                    />
+                    <span
+                      className="text-xs font-semibold"
+                      style={{ color: "#D9A441" }}
+                    >
+                      {t("nowShowing")}
+                    </span>
+                  </div>
+
                   <h1
                     style={{ color: "#F5F1E8" }}
-                    className="text-3xl sm:text-5xl md:text-6xl font-bold leading-[1.1] md:leading-[1.05] mb-3 break-words"
+                    className="text-4xl sm:text-6xl md:text-7xl font-bold leading-[1.05] mb-4 break-words"
                   >
                     {getTitle(currentHeroMovie)}
                   </h1>
 
                   {(heroGenres.length > 0 || heroRuntime) && (
                     <div
-                      className="flex flex-wrap items-center justify-center md:justify-start gap-x-2 gap-y-1 text-xs font-semibold mb-4 md:mb-5"
+                      className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs font-semibold mb-5"
                       style={{ color: "#9C97A3" }}
                     >
                       {heroGenres.map((g, i) => (
@@ -563,14 +442,14 @@ export default function MovieSection({
 
                   {heroSynopsis && (
                     <p
-                      className="text-sm leading-relaxed line-clamp-3 mb-6 md:mb-7"
+                      className="text-sm leading-relaxed line-clamp-3 mb-8"
                       style={{ color: "#ACA8B4" }}
                     >
                       {heroSynopsis}
                     </p>
                   )}
 
-                  <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 sm:gap-4">
+                  <div className="flex flex-wrap items-center justify-center gap-3 sm:gap-4">
                     <button
                       type="button"
                       onClick={() =>
@@ -599,111 +478,73 @@ export default function MovieSection({
                   </div>
                 </div>
 
-                {/* Next strip */}
+                {/* thumbnail strip — sharp, real poster images, plain
+                    object-cover, no blur/scale duplication */}
                 {featured.length > 1 && (
-                  <div className="flex flex-col md:flex-row md:items-end gap-4 md:gap-8 mt-8 md:mt-16">
-                    <div className="flex flex-row md:flex-col items-center md:items-start justify-between md:justify-start gap-4 shrink-0">
-                      <span
-                        style={{
-                          color: "#F5F1E8",
-                          fontFamily: "'Bebas Neue', sans-serif",
-                          letterSpacing: "0.02em",
-                        }}
-                        className="text-2xl"
-                      >
-                        Next
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={goPrevHero}
-                          aria-label="Previous movie"
-                          className="flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-full border transition-colors cursor-pointer hover:bg-white/5"
-                          style={{
-                            borderColor: "rgba(255,255,255,0.2)",
-                            color: "#9C97A3",
-                          }}
-                        >
-                          <ChevronLeft size={16} />
-                        </button>
-                        <button
-                          onClick={goNextHero}
-                          aria-label="Next movie"
-                          className="flex items-center justify-center w-10 h-10 md:w-9 md:h-9 rounded-full cursor-pointer transition-transform hover:scale-105"
-                          style={{ background: "#C0392B", color: "#F5F1E8" }}
-                        >
-                          <ChevronRight size={16} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div
-                      className="flex items-end gap-3 md:gap-5 overflow-x-auto hide-scrollbar pt-3 pb-2 w-full md:w-auto min-w-0"
-                      style={{ perspective: "1100px" }}
+                  <div className="flex items-center justify-center gap-2 sm:gap-3 mt-10 sm:mt-14">
+                    <button
+                      onClick={goPrevHero}
+                      aria-label="Previous movie"
+                      className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full border shrink-0 transition-colors cursor-pointer hover:bg-white/5"
+                      style={{
+                        borderColor: "rgba(255,255,255,0.2)",
+                        color: "#9C97A3",
+                      }}
                     >
-                      {featured
-                        .map((m, i) => ({ m, i }))
-                        .filter(({ i }) => i !== activeHeroIndex)
-                        .map(({ m, i }, idx) => {
-                          const thumb = getPosterUrl(m);
-                          const fan = (idx % 3) - 1; // -1 / 0 / 1 — a gentle alternating tilt
-                          return (
-                            <button
-                              key={getId(m, i)}
-                              onClick={() => setActiveHeroIndex(i)}
-                              aria-label={`Show ${getTitle(m)}`}
-                              className="gallery-card shrink-0 w-[92px] h-[138px] sm:w-[104px] sm:h-[156px] md:w-[116px] md:h-[174px] rounded-xl overflow-hidden relative cursor-pointer border border-white/10 bg-black/30 backdrop-blur-sm shadow-[0_12px_28px_-10px_rgba(0,0,0,0.6)]"
-                              style={
-                                {
-                                  "--fan": `${fan * 10}deg`,
-                                  "--depth": `${-Math.abs(fan) * 14}px`,
-                                } as CSSProperties
-                              }
-                            >
-                              {thumb ? (
-                                <>
-                                  {/* blurred fill so a portrait poster still fills the box even
-                                      though the sharp copy above is never cropped */}
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={thumb}
-                                    alt=""
-                                    aria-hidden
-                                    className="absolute inset-0 w-full h-full object-cover scale-110 blur-md opacity-50"
-                                  />
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={thumb}
-                                    alt={getTitle(m)}
-                                    className="absolute inset-0 w-full h-full object-contain"
-                                  />
-                                </>
-                              ) : (
-                                <div
-                                  className="w-full h-full flex items-center justify-center"
-                                  style={{
-                                    background: fallbackAccent(getTitle(m)),
-                                  }}
-                                >
-                                  <Film
-                                    size={20}
-                                    color="rgba(255,255,255,0.3)"
-                                  />
-                                </div>
-                              )}
-                              <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/85 to-transparent" />
-                              <span
-                                className="absolute bottom-2 left-2 right-2 text-[10px] font-semibold truncate text-left"
+                      <ChevronLeft size={16} />
+                    </button>
+
+                    <div className="flex items-center gap-2.5 sm:gap-3 overflow-x-auto hide-scrollbar py-2 px-1 max-w-full">
+                      {featured.map((m, i) => {
+                        const thumb = getPosterUrl(m);
+                        const isActive = i === activeHeroIndex;
+                        return (
+                          <button
+                            key={getId(m, i)}
+                            onClick={() => setActiveHeroIndex(i)}
+                            aria-label={`Show ${getTitle(m)}`}
+                            className="shrink-0 rounded-lg overflow-hidden relative cursor-pointer transition-all duration-300"
+                            style={{
+                              width: 60,
+                              height: 90,
+                              border: isActive
+                                ? "2px solid #D9A441"
+                                : "2px solid rgba(255,255,255,0.1)",
+                              opacity: isActive ? 1 : 0.55,
+                              transform: isActive ? "translateY(-4px)" : "none",
+                            }}
+                          >
+                            {thumb ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={thumb}
+                                alt={getTitle(m)}
+                                loading="lazy"
+                                className="absolute inset-0 w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div
+                                className="w-full h-full flex items-center justify-center"
                                 style={{
-                                  color: "#F5F1E8",
-                                  textShadow: "0 1px 3px rgba(0,0,0,0.9)",
+                                  background: fallbackAccent(getTitle(m)),
                                 }}
                               >
-                                {getTitle(m)}
-                              </span>
-                            </button>
-                          );
-                        })}
+                                <Film size={16} color="rgba(255,255,255,0.3)" />
+                              </div>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
+
+                    <button
+                      onClick={goNextHero}
+                      aria-label="Next movie"
+                      className="hidden sm:flex items-center justify-center w-9 h-9 rounded-full shrink-0 cursor-pointer transition-transform hover:scale-105"
+                      style={{ background: "#C0392B", color: "#F5F1E8" }}
+                    >
+                      <ChevronRight size={16} />
+                    </button>
                   </div>
                 )}
               </div>

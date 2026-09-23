@@ -51,6 +51,46 @@ function LoginForm() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
 
+  // ---- Turnstile responsive sizing --------------------------------------
+  // "flexible" size lets some Android WebViews (Oppo/Realme/Vivo — ColorOS
+  // / FuntouchOS Chrome builds) mis-measure the available width on first
+  // paint, so the widget renders wider than the card and gets cropped by
+  // the card's own overflow-hidden (used for the glow effect). We measure
+  // the real space ourselves and fall back to the fixed "compact" size —
+  // which always renders fully regardless of container width — whenever
+  // there isn't comfortably enough room, then remount the widget (via key)
+  // any time that measurement changes so a stale first-paint value never
+  // sticks.
+  const turnstileWrapperRef = useRef<HTMLDivElement>(null);
+  const [turnstileSize, setTurnstileSize] = useState<"compact" | "flexible">(
+    "flexible",
+  );
+
+  useEffect(() => {
+    const el = turnstileWrapperRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const width = el.offsetWidth;
+      setTurnstileSize(width < 300 ? "compact" : "flexible");
+    };
+
+    measure();
+
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(el);
+
+    // Some Android WebViews report a stale width on the very first paint,
+    // before their font/zoom scaling settles — remeasure shortly after
+    // mount to correct for that.
+    const retry = window.setTimeout(measure, 300);
+
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(retry);
+    };
+  }, []);
+
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -277,6 +317,7 @@ function LoginForm() {
         px-4
         transition-colors
         duration-300
+        overflow-x-hidden
         ${pageClass}
       `}
     >
@@ -560,25 +601,33 @@ function LoginForm() {
             )}
           </div>
 
-          {/* TURNSTILE */}
+          {/* TURNSTILE — measured width decides compact vs flexible size,
+              plus an overflow-x-auto safety net so nothing is ever
+              silently clipped by the card's overflow-hidden. */}
           <div className="my-4 w-full">
-            <Turnstile
-              ref={turnstileRef}
-              siteKey="0x4AAAAAAEpf88txuioOhN0W"
-              options={{
-                theme: isLight ? "light" : "dark",
-                size: "flexible",
-              }}
-              className="w-full"
-              onSuccess={(token) => {
-                setTurnstileToken(token);
-                setErrors((prev) => ({
-                  ...prev,
-                  turnstile: undefined,
-                }));
-              }}
-              onExpire={() => setTurnstileToken(null)}
-            />
+            <div
+              ref={turnstileWrapperRef}
+              className="w-full min-w-0 flex justify-center overflow-x-auto"
+            >
+              <Turnstile
+                key={turnstileSize}
+                ref={turnstileRef}
+                siteKey="0x4AAAAAAEpf88txuioOhN0W"
+                options={{
+                  theme: isLight ? "light" : "dark",
+                  size: turnstileSize,
+                }}
+                className={turnstileSize === "flexible" ? "w-full" : ""}
+                onSuccess={(token) => {
+                  setTurnstileToken(token);
+                  setErrors((prev) => ({
+                    ...prev,
+                    turnstile: undefined,
+                  }));
+                }}
+                onExpire={() => setTurnstileToken(null)}
+              />
+            </div>
 
             {errors.turnstile && (
               <p className="mt-2 text-[11px] text-red-500 font-medium text-center">

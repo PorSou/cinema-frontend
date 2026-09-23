@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useRef, useEffect, FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -33,6 +33,43 @@ export default function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+
+  // ---- Turnstile responsive sizing --------------------------------------
+  // Same fix as the Login page: some Android WebViews (Oppo/Realme/Vivo)
+  // mis-measure the container on first paint when using size "flexible",
+  // rendering the widget wider than the card and getting cropped by the
+  // card's overflow-hidden. We measure the real space ourselves and fall
+  // back to the fixed "compact" size when there isn't enough room, then
+  // remount the widget (via key) whenever that measurement changes.
+  const turnstileWrapperRef = useRef<HTMLDivElement>(null);
+  const [turnstileSize, setTurnstileSize] = useState<"compact" | "flexible">(
+    "flexible",
+  );
+
+  useEffect(() => {
+    const el = turnstileWrapperRef.current;
+    if (!el) return;
+
+    const measure = () => {
+      const width = el.offsetWidth;
+      setTurnstileSize(width < 300 ? "compact" : "flexible");
+    };
+
+    measure();
+
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(el);
+
+    // Some Android WebViews report a stale width on the very first paint,
+    // before their font/zoom scaling settles — remeasure shortly after
+    // mount to correct for that.
+    const retry = window.setTimeout(measure, 300);
+
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(retry);
+    };
+  }, []);
 
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -249,7 +286,8 @@ export default function RegisterPage() {
 
   return (
     <div
-      className={`         min-h-[85vh]
+      className={`
+        min-h-[85vh]
         flex
         items-center
         justify-center
@@ -257,11 +295,13 @@ export default function RegisterPage() {
         px-4
         transition-colors
         duration-300
+        overflow-x-hidden
         ${pageClass}
       `}
     >
       <div
-        className={`           w-full
+        className={`
+          w-full
           max-w-md
           rounded-[2.5rem]
           p-8
@@ -636,23 +676,31 @@ export default function RegisterPage() {
             )}
           </div>
 
-          {/* TURNSTILE */}
+          {/* TURNSTILE — measured width decides compact vs flexible size,
+              plus an overflow-x-auto safety net so nothing is ever
+              silently clipped by the card's overflow-hidden. */}
           <div className="my-4 w-full">
-            <Turnstile
-              siteKey="0x4AAAAAAEpf88txuioOhN0W"
-              options={{
-                theme: isLight ? "light" : "dark",
-                size: "flexible",
-              }}
-              className="w-full"
-              onSuccess={(token) => {
-                setTurnstileToken(token);
-                clearFieldError("turnstile");
-              }}
-              onExpire={() => {
-                setTurnstileToken(null);
-              }}
-            />
+            <div
+              ref={turnstileWrapperRef}
+              className="w-full min-w-0 flex justify-center overflow-x-auto"
+            >
+              <Turnstile
+                key={turnstileSize}
+                siteKey="0x4AAAAAAEpf88txuioOhN0W"
+                options={{
+                  theme: isLight ? "light" : "dark",
+                  size: turnstileSize,
+                }}
+                className={turnstileSize === "flexible" ? "w-full" : ""}
+                onSuccess={(token) => {
+                  setTurnstileToken(token);
+                  clearFieldError("turnstile");
+                }}
+                onExpire={() => {
+                  setTurnstileToken(null);
+                }}
+              />
+            </div>
 
             {errors.turnstile && (
               <p className="mt-2 text-[11px] text-red-500 font-medium text-center">
