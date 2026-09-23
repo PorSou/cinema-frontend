@@ -347,18 +347,18 @@ function LoginForm() {
   return (
     <div
       className={`
-          min-h-[85vh]
-          flex
-          items-center
-          justify-center
-          py-12
-          px-3
-          sm:px-4
-          transition-colors
-          duration-300
-          overflow-x-hidden
-          ${pageClass}
-        `}
+  min-h-[85vh]
+  flex
+  items-center
+  justify-center
+  py-12
+  px-4
+  sm:px-5
+  transition-colors
+  duration-300
+  overflow-x-hidden
+  ${pageClass}
+`}
     >
       <div
         className={`

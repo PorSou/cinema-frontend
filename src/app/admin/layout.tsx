@@ -37,6 +37,7 @@ import {
   TrendingUp,
   User,
   ChevronDown,
+  Check,
 } from "lucide-react";
 
 import { UserResponse } from "@/app/types/api.types";
@@ -517,33 +518,45 @@ export default function AdminLayout({
                         href={item.href}
                         onClick={() => setSidebarOpen(false)}
                         title={isCollapsed ? item.label : undefined}
-                        className={`group flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-xs font-bold transition-all duration-500 ease-out relative overflow-hidden border ${
+                        className={`group flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-bold transition-all duration-500 ease-out relative overflow-hidden border ${
                           isActive
-                            ? "bg-emerald-800/90 border-emerald-600/40 text-white shadow-md shadow-emerald-900/40"
+                            ? isLight
+                              ? "bg-emerald-50 border-emerald-300 text-emerald-800 shadow-sm"
+                              : "bg-emerald-900/30 border-emerald-500/40 text-emerald-50 shadow-md shadow-emerald-900/40"
                             : `border-transparent ${hoverItemClass} hover:scale-[1.01] active:scale-[0.98]`
                         }`}
                       >
                         {isActive && (
-                          <span className="absolute inset-0 bg-gradient-to-r from-white/5 to-transparent animate-pulse" />
-                        )}
-
-                        {isActive ? (
-                          <span className="relative z-10 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-amber-500/40 bg-amber-500/10 transition-all duration-300 ease-out">
-                            <Icon className="h-3.5 w-3.5 text-amber-400" />
-                          </span>
-                        ) : (
-                          <Icon
-                            className={`h-4 w-4 shrink-0 transition-all duration-300 ease-out group-hover:scale-110 ${
+                          <span
+                            className={`absolute inset-0 animate-pulse ${
                               isLight
-                                ? "text-slate-500 group-hover:text-red-600"
-                                : "text-slate-400 group-hover:text-red-400"
+                                ? "bg-gradient-to-r from-emerald-200/30 to-transparent"
+                                : "bg-gradient-to-r from-emerald-400/5 to-transparent"
                             }`}
                           />
                         )}
 
-                        {!isCollapsed && (
-                          <span className="truncate tracking-wide font-black relative z-10">
-                            {item.label}
+                        <div className="flex items-center gap-3 min-w-0 relative z-10">
+                          <Icon
+                            className={`h-4 w-4 shrink-0 transition-all duration-300 ease-out ${
+                              isActive
+                                ? isLight
+                                  ? "text-emerald-600 scale-110"
+                                  : "text-emerald-400 scale-110"
+                                : isLight
+                                  ? "text-slate-500 group-hover:text-red-600 group-hover:scale-110"
+                                  : "text-slate-400 group-hover:text-red-400 group-hover:scale-110"
+                            }`}
+                          />
+                          {!isCollapsed && (
+                            <span className="truncate tracking-wide font-black">
+                              {item.label}
+                            </span>
+                          )}
+                        </div>
+                        {!isCollapsed && isActive && (
+                          <span className="relative z-10 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-500 animate-in zoom-in-50 duration-300">
+                            <Check className="h-2.5 w-2.5 text-white stroke-[3.5]" />
                           </span>
                         )}
                       </Link>
