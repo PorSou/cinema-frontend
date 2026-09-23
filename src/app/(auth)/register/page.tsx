@@ -686,8 +686,17 @@ export default function RegisterPage() {
           <div className="my-4 w-full">
             <div
               ref={turnstileWrapperRef}
-              className="w-full min-w-0 flex justify-center overflow-x-auto"
+              className="turnstile-scroll w-full min-w-0 flex justify-center overflow-x-auto"
             >
+              <style jsx>{`
+                .turnstile-scroll::-webkit-scrollbar {
+                  display: none;
+                }
+                .turnstile-scroll {
+                  -ms-overflow-style: none;
+                  scrollbar-width: none;
+                }
+              `}</style>
               <Turnstile
                 key={turnstileKey}
                 siteKey="0x4AAAAAAEpf88txuioOhN0W"
