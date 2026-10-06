@@ -5,6 +5,6 @@ export default function robots() {
       allow: "/",
       disallow: ["/admin", "/api/", "/login", "/register"],
     },
-    sitemap: "https://cinema-frontend-py8v.vercel.app/sitemap.xml",
+    sitemap: "https://www.porsou.store/sitemap.xml",
   };
 }
